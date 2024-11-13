@@ -1,0 +1,28 @@
+cabal-version:      2.4
+name:               DLam
+version:            0.1.0.2023
+
+executable DLam
+    main-is:          Main.hs
+
+    -- Modules included in this executable, other than Main.
+    other-modules:
+      Lang,
+      SLang,
+      Parse,
+      TypeCheck
+    ghc-options: 
+        -threaded 
+        -rtsopts 
+        -with-rtsopts=-N 
+    -- other-extensions:
+    build-depends:    
+          base >=4.7
+        , parsec
+        , pretty
+        , prettyprinter
+        , prettyprinter-ansi-terminal
+        , text
+        , mtl
+    default-extensions:
+          DuplicateRecordFields
