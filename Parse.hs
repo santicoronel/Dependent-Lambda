@@ -1,6 +1,5 @@
 module Parse where
 
-import SLang
 
 import Text.Parsec
 import Text.ParserCombinators.Parsec.Language
