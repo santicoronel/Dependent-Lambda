@@ -68,13 +68,13 @@ infixl 9 :@:
 -- TODO tengo un problema con el unionfind y name shadowing
 -- podria tener un mapa de variables a nodos del uf
 data Term =
-  V Var [Term] -- podria tener un pattern para V v []
-  | Lit Int
+  -- TODO pensar si estoy aprovechando los xes
+  V Var
   | Lam Arg (Scope Term)
   | Term :@: Term
   -- para aplicacion parcial eta expandimos??
   -- yo diria q no
-  | Con ConHead [Term]
+  | Con ConHead
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
   | Elim Term [ElimBranch]
@@ -85,7 +85,7 @@ data Term =
   deriving (Eq, Show)
 
 var :: Name -> Term
-var x = V (Local x) []
+var x = V (Local x)
 
 natTy :: Type
 natTy = Type (Data Nat)

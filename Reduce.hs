@@ -2,31 +2,25 @@ module Reduce (
   reduceNF,
   reduce,
   reduceNFType,
-  reduceType,
-  substitute
+  reduceType
 ) where
 
 import Lang
 import MonadTypeCheck
 import Control.Monad ( mapM )
 
--- MAYBE hacer substitucion, reduccion a forma normal y LISTO
+-- TODO llevar variables libres/frescas para poder
+-- dejar variables sin expandir
+-- asi podemos hacer reduceHead y tmb reducir fix una vez
 
--- TODO ver el caso fix f ... = ... f x ...
--- donde x es una variable (sin definicion)
--- solucion trivial: no reducir cuerpo de funciones recursivas
--- mejor solucion: identificar ese caso
+
 reduceNF :: MonadTypeCheck m => Term -> m Term
-reduceNF (V (Local x) xes) = do
-  es <- mapM reduceNF xes
+reduceNF t@(V (Local x)) = do
   dx <- getLocalDef x
   case dx of
-    Nothing -> return (V (Local x) xes)
-    Just d -> reduceNF (foldl (:@:) d es)
-reduceNF (V (Global x) xes) = do
-  dx <- getGlobalDef x
-  es <- mapM reduceNF xes
-  reduceNF (foldl (:@:) dx es)
+    Nothing -> return t
+    Just tx -> return tx
+reduceNF (V (Global x)) = getGlobalDef x
 reduceNF (Lam arg (Scope t)) = do
   bindArg (argName arg) (argType arg)
   t' <- reduceNF t
@@ -36,58 +30,162 @@ reduceNF (t :@: u) = do
   t' <- reduceNF t
   u' <- reduceNF u
   case t' of
-    (V (Local x) xes) -> return (V (Local x) (xes ++ [u']))
+    (V _) -> return (t' :@: u')
     (Lam arg (Scope s)) -> do
       bindLocal (argName arg) (argType arg) u'
       s' <- reduceNF s
       unbind (argName arg)
       return s'
-    -- TODO hacer bien
-    t@(Fix f arg ty s) -> do
-      bindRec f ty t arg -- mm eto ta mal
-      bindLocal (argName arg) (argType arg) u'
-      s' <- reduceNF s
-      unbind (argName arg) >> unbind (argName arg) -- lmao
-      unbind f
-      return s'
+    (_ :@: _) -> return (t' :@: u')
+    (Fix f arg ty s) -> do
+      -- TODO aplicar con var fresca
+      cs <- isCons u'
+      if cs
+        then doAndRestore id (do
+          bindRec f ty t arg -- mm eto ta mal
+          bindLocal (argName arg) (argType arg) u'
+          reduceNF s
+          )
+        else return (t' :@: u')
     _ -> error "type error en reduce"
 reduceNF (Elim t bs) = do
   t' <- reduceNF t
-  bs' <- reduceNFBranches
-  case t' of
-    V _ _ -> return (Elim t' bs')
-    Con ch as -> match ch as bs'
-reduceNF t@(Fix f arg ty s) = do
+  case inspectCons t' of
+    Just (ch, as) -> doAndRestore id (do
+      let b = match ch bs
+      zipWithM_ bindPattern as (elimConArgs b)
+      reduceNF (elimRes b)
+    )
+    Nothing -> Elim t' <$> reduceNFBranches bs'
+reduceNF t@(Fix f arg ty s) = doAndRestore id (do
   bindRec f ty t arg
-  s' <- reduceNF s -- TODO esto no termina
-  unbind (argName arg)
-  unbind f
-  return s'
+  reduceNF s
+  )
 reduceNF (Pi arg (Scope ty)) = do
   bindArg (argName arg) (argType arg)
   ty' <- reduceNFType ty
   unbind (argName arg)
   return (Pi arg (Scope ty'))
--- TODO pensar bien este caso
--- pierdo info?? no deberia
 reduceNF (Ann t ty) = reduceNF t
 reduceNF t = return t
 
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType (Type t) = Type <$> reduceNF t
 
--- TODO pensar bien esto
+reduceNFBranches :: MonadTypeCheck m => [ElimBranch] -> m [ElimBranch]
+reduceNFBranches = mapM reduceBranch
+  where
+    go b = doAndRestore id (do
+      mapM_ bindArg (elimConArgs b)
+      reduceNF (elimRes b)
+      )
+
+inspectCons :: Term -> Maybe (ConHead, [Term])
+inspectCons = go []
+  where
+    go [] (Con Zero) = Just (Zero, [])
+    go [n] (Con Suc) = Just (Suc, [n])
+    go [] (Con Refl) = Just (Refl, [])
+    go as (Con ch) =
+      let las = length as
+      in if las == conArity ch
+        then Just (ch, as)
+      else if las < conArity ch
+        then Nothing
+        else error "inspectCons: type error"
+    go _ _ = error "inspectCons: type error"
+
+match ch bs :: ConHead -> [ElimBranch]
+match _ [] = error "match"
+match ch (b:bs)
+  | ch == elimCon b = b
+  | otherwise = match ch bs
+
 reduce :: MonadTypeCheck m => Term -> m Term
 reduce = reduceNF
+
 reduceType :: MonadTypeCheck m => Type -> m Type
 reduceType = reduceNFType
 
 
--- tengo q sustituir en el entorno
--- TODO pensar mejor esto
-substitute :: Name -> Term -> Term -> Term
-substitute x tx (V (Local y) yes) 
-  -- reduzco aca??
-  | x == y = foldl (:@:) tx yes
-  | otherwise = _
-substitute x tx _ = _
+-- NICETOHAVE hacer bien esto
+
+{-
+reduceH :: MonadTypeCheck m => Term -> m (Maybe Term)
+-- TODO chequear si es rec
+reduceH (V (Local x)) = do
+  mdx <- getLocalDef
+  case mdx of
+    Nothing -> do
+      res <- mapM reduceHead xes
+      return (V (Local x) <$> res)
+    (Just dx, _) -> reduceHead (foldl (:@:) dx x)
+reduceH (V (Global x) xes) = do
+  dx <- getGlobalDef x
+  reduceHead (foldl (:@:) dx xes)
+reduceH t = reduceHead t
+
+reduceHead :: MonadTypeCheck m => Term -> m (Maybe Term)
+reduceHead (V (Local x) xes) = do
+  res <- mapM reduceHead xes
+  return (V (Local x) <$> res)
+reduceHead (V (Global x) xes) = do
+  res <- mapM reduceHead xes
+  return (V (Global x) <$> res)
+reduceHead (Lam arg (Scope t)) = do
+  bindArg (argName arg) (argType arg)
+  t' <- reduceHead t
+  unbind (argName arg)
+  return (Lam arg . Scope <$> t')
+reduceHead (t :@: u) = do
+  rt <- reduceHead t
+  ru <- reduceHead u
+  case (rt, ru) of
+    (Nothing, Nothing) -> return Nothing
+    (Just t', _) ->
+      let u' = fromJust u ru
+      in case t' of
+        (V (Local x) xes) -> return (Just $ (V (Local x) (xes ++ [u'])))
+        (V (Global x) xes) -> return (Just $ (V (Global x) (xes ++ [u'])))
+        (Lam arg (Scope s)) -> do
+          bindLocal (argName arg) (argType arg) u'
+          reduceHead s
+        (Fix f arg ty s) -> do
+          bindRec f ty t arg
+          bindLocal (argName arg) (argType arg) u'
+          reduceHead s
+        _ -> error "reduceHead: type error en rt"
+    (Nothing, Just u') -> return (Just $ t :@: u') 
+reduceHead (Elim t bs) = do
+  -- NICETOHAVE no reducir todas las branches si voy a eliminar
+  mt <- reduceHead t
+  mbs <- reduceHeadBranches
+  case (mt, mbs) of
+    (Nothing, Nothing) -> return Nothing
+    (Nothing, Just bs') -> return (Just $ Elim t bs')
+    (Just t', _) ->
+      let bs' = fromJust bs mbs
+      in case t' of
+        V _ _ -> return (Just $ Elim t' bs')
+        Con ch as -> matchHead ch as bs'
+        _ -> error "reduceHead: type error"
+reduceHead t@(Fix f arg ty s) = do
+  bindRec f ty t arg
+  s' <- reduceHead s
+  unbind (argName arg)
+  unbind f
+  return (Fix f arg ty <$> s')
+reduceHead (Pi arg (Scope ty)) = do
+  bindArg (argName arg) (argType arg)
+  ty' <- reduceHeadType ty
+  unbind (argName arg)
+  return (Pi arg  . Scope <$> ty')
+reduceHead (Ann t ty) = reduceHead t
+reduceHead t = return Nothing
+
+reduceHeadType :: MonadTypeCheck m => Type -> m (Maybe Type)
+reduceHeadType (Type t) = do
+  t' <- reduceHead t
+  return (Type <$> t')
+
+-}

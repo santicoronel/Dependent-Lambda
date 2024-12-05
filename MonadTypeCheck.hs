@@ -10,7 +10,7 @@ import UnionFind
 
 import Control.Monad.Except
 import Control.Monad.State
-
+import Data.Maybe ( isJust )
 
 class (
   Monad m,
@@ -18,14 +18,14 @@ class (
   MonadState Context m
   ) => MonadTypeCheck m where
 
--- TODO no use nunca esto juas
+
 doAndRestore :: MonadState s m => (s -> s) -> m a -> m a
 doAndRestore mod m = do
   s <- get
   put (mod s)
   x <- m
   put s
-  return x 
+  return x
 
 lookupWith :: Name -> [a] -> (a -> Name) -> (a -> b) -> Maybe b
 lookupWith _ [] _ _ = Nothing
@@ -81,6 +81,28 @@ bindLocal x ty d = do ctx <- get
                           b = LBinder x ty ( Just d) Nothing
                       put (ctx { local = b : bc })
 
+updateWith :: (a -> Name) -> (a -> a) -> Name -> [a] -> Maybe [a]
+updateWith _ _ _ [] = Nothing
+updateWith gn up x (y:ys)
+  | gn y == x = Just (up y : ys)
+  | otherwise = (y :) <$> updateWith gn up x ys
+
+bindPattern :: MonadState Context m => Name -> Term -> m ()
+bindPattern x p = do
+  ctx <- get
+  let l = updateWith localName (\lb -> lb { localDef = Just p }) x (local ctx)
+  case l of
+    Nothing -> error "bindPattern" 
+    Just lc -> put (ctx { local = lc })
+
+unbindPattern :: MonadState Context m => Name -> m ()
+unbindPattern x = do
+  ctx <- get
+  let l = updateWith localName (\lb -> lb { localDef = Nothing }) x (local ctx)
+  case l of
+    Nothing -> error "unbindPatter"
+    Just lc -> put (ctx { local = lc })
+
 getDataDef :: MonadTypeCheck m => Name -> m DataDef
 getDataDef d = do
   dds <- gets datadefs
@@ -99,6 +121,13 @@ unbind x = do ctx <- get
               case deleteWith x (local ctx) localName of
                 Just lc -> put ctx { local = lc }
                 Nothing -> error ("unbind " ++ x)
+
+isRec :: MonadState Context m => Name -> m Bool
+isRec x = do
+  ctx <- get
+  case lookupWith x (local ctx) localName recArg of
+    Nothing -> error "isRec"
+    Just r -> return (isJust r)
 
 unifyVars :: MonadTypeCheck m => Name -> Name -> m ()
 unifyVars x y = do

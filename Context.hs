@@ -3,6 +3,8 @@ module Context where
 import Lang
 import UnionFind ( UnionFind )
 
+-- TODO no voy a hacer analisis de terminacion durante typechecking
+-- con un bool me alcanza
 data LocalBinder = LBinder {
   localName :: Name,
   localType :: Type,

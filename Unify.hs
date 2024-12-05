@@ -23,6 +23,7 @@ unifyTerms t u = do
     go t1@(V (Local x) []) t2@(V (Local y) []) = do
       ctx <- get
       unifyVars x y
+    -- TODO esta mal
     go (Con c xes) (Con d yes)
       | c == d = if length xes == length yes
         then zipWithM_ go xes yes
