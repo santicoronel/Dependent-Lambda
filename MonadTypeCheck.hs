@@ -19,10 +19,9 @@ class (
   ) => MonadTypeCheck m where
 
 
-doAndRestore :: MonadState s m => (s -> s) -> m a -> m a
-doAndRestore mod m = do
+doAndRestore :: MonadState s m => m a -> m a
+doAndRestore m = do
   s <- get
-  put (mod s)
   x <- m
   put s
   return x
@@ -64,7 +63,9 @@ bindArg x ty = do
   ctx <- get
   let lc = local ctx
       bx = LBinder x ty Nothing Nothing
-  put (ctx { local = bx : lc})
+      uf = unif ctx
+      uf' = insert uf x
+  put (ctx { local = bx : lc, unif = uf' })
 
 bindRec :: MonadState Context m => Name -> Type -> Term -> Arg -> m ()
 bindRec f ty df arg = do
@@ -129,6 +130,12 @@ isRec x = do
     Nothing -> error "isRec"
     Just r -> return (isJust r)
 
+insertUnifNode :: MonadTypeCheck m => Name -> m ()
+insertUnifNode x = do
+  ctx <- get
+  let uf = insert (unif ctx) x
+  put ctx { unif = uf }
+
 unifyVars :: MonadTypeCheck m => Name -> Name -> m ()
 unifyVars x y = do
   ctx <- get
@@ -136,12 +143,14 @@ unifyVars x y = do
     Nothing -> error $ "union: " ++ x ++ y ++ "??"
     Just uf -> put (ctx { unif = uf })
 
-findVar :: MonadTypeCheck m => Name -> m Name
-findVar x = do
+varEq :: MonadTypeCheck m => Name -> Name -> m Bool
+varEq x y = do
   ctx <- get
-  case find (unif ctx) x of
-    Nothing -> error $ "find " ++ x ++ "??"
-    Just x' -> return x'
+  case equivalent (unif ctx) x y of
+    Nothing -> error $ "unionfind.equivalent " ++ x ++ " " ++ y
+    Just (uf, res) -> do
+      put ctx { unif = uf }
+      return res
 
 retry :: MonadError e m => m a -> m a -> m a
 retry a b = a `catchError` const b

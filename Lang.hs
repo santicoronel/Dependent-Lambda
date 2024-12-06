@@ -39,6 +39,7 @@ data DataType =
   | DataT Name
   deriving (Eq, Show)
 
+-- TODO tipo debe estar reducido
 data DataDef = DataDef { 
   dataName :: Name,
   dataSort :: Sort,
@@ -48,6 +49,7 @@ data DataDef = DataDef {
   dataCons :: [Constructor]
 } deriving (Eq, Show)
 
+-- TODO tipo debe estar reducido
 data Constructor = Constructor {
   conName :: Name,
   conType :: Type,
@@ -91,10 +93,20 @@ natTy :: Type
 natTy = Type (Data Nat)
 
 zero :: Term
-zero = Con Zero []
+zero = Con Zero
 
 suc :: Term -> Term
-suc n = Con Suc [] :@: n 
+suc n = Con Suc :@: n 
 
 eqTy :: Term -> Term -> Type
 t `eqTy` u = Type (Data (Eq t u))
+
+consArgTypes :: ConHead -> [Type]
+consArgTypes Zero = []
+consArgTypes Suc = [natTy]
+consArgTypes Refl = []
+consArgTypes (DataCon c) = getArgsTypes (unType $ conType c)
+
+getArgsTypes :: Term -> [Type]
+getArgsTypes (Pi arg (Scope ty)) = argType arg : getArgsTypes (unType ty)
+getArgsTypes ty = [Type ty]

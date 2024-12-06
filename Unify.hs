@@ -20,18 +20,25 @@ unifyTerms t u = do
 -- TODO chequeo primero si son iguales? eso lo podria hacer union
 -- TODO cuando falla union??
 -- tengo q saber si ya estan en el uf antes de hacerlo? medio choto
-    go t1@(V (Local x) []) t2@(V (Local y) []) = do
+    go t1@(V (Local x)) t2@(V (Local y)) = do
       ctx <- get
       unifyVars x y
-    -- TODO esta mal
-    go (Con c xes) (Con d yes)
-      | c == d = if length xes == length yes
-        then zipWithM_ go xes yes
-        else error "error de tipos en unificacion" -- TODO esta bien??
-      | otherwise = throwError ENotUnif 
-    go (t1 :@: t2) (u1 :@: u2) = error "application in nf"
-    go t u = return ()
+    go t u = case (inspectCons t, inspectCons u) of
+      (Just (ct, at), Just (cu, au)) ->
+        if ct == cu
+          then if length at == length au
+            then zipWithM_ unifyTerms at au
+            else error "unifyTerms: type error"
+          else throwError ENotUnif
+      _ -> return ()
 
+
+inspectCons :: Term -> Maybe (ConHead, [Term])
+inspectCons = go []
+  where
+    go as (Con ch) = Just (ch, as)
+    go as (t :@: u) = go (u : as) t
+    go _ _ = Nothing
 
 notUnifiable :: MonadTypeCheck m => Term -> Term -> m ()
 notUnifiable t u = do

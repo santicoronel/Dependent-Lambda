@@ -7,7 +7,9 @@ module Reduce (
 
 import Lang
 import MonadTypeCheck
-import Control.Monad ( mapM )
+
+import Control.Monad ( mapM, zipWithM_ )
+import Data.Maybe ( isJust )
 
 -- TODO llevar variables libres/frescas para poder
 -- dejar variables sin expandir
@@ -39,9 +41,8 @@ reduceNF (t :@: u) = do
     (_ :@: _) -> return (t' :@: u')
     (Fix f arg ty s) -> do
       -- TODO aplicar con var fresca
-      cs <- isCons u'
-      if cs
-        then doAndRestore id (do
+      if isCons u'
+        then doAndRestore (do
           bindRec f ty t arg -- mm eto ta mal
           bindLocal (argName arg) (argType arg) u'
           reduceNF s
@@ -51,13 +52,13 @@ reduceNF (t :@: u) = do
 reduceNF (Elim t bs) = do
   t' <- reduceNF t
   case inspectCons t' of
-    Just (ch, as) -> doAndRestore id (do
+    Just (ch, as) -> doAndRestore (do
       let b = match ch bs
-      zipWithM_ bindPattern as (elimConArgs b)
+      zipWithM_ bindPattern (elimConArgs b) as
       reduceNF (elimRes b)
-    )
-    Nothing -> Elim t' <$> reduceNFBranches bs'
-reduceNF t@(Fix f arg ty s) = doAndRestore id (do
+      )
+    Nothing -> Elim t' <$> reduceNFBranches bs
+reduceNF t@(Fix f arg ty s) = doAndRestore (do
   bindRec f ty t arg
   reduceNF s
   )
@@ -72,12 +73,17 @@ reduceNF t = return t
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType (Type t) = Type <$> reduceNF t
 
+-- TODO aca hay un problema
+-- necesito informacion de tipo
 reduceNFBranches :: MonadTypeCheck m => [ElimBranch] -> m [ElimBranch]
-reduceNFBranches = mapM reduceBranch
+reduceNFBranches = mapM reduceNFBranch
   where
-    go b = doAndRestore id (do
-      mapM_ bindArg (elimConArgs b)
-      reduceNF (elimRes b)
+    reduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
+    reduceNFBranch b = doAndRestore (do
+      let atys = consArgTypes (elimCon b)
+      zipWithM_ bindArg (elimConArgs b) atys
+      res <- reduceNF (elimRes b)
+      return b { elimRes = res }
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])
@@ -86,16 +92,17 @@ inspectCons = go []
     go [] (Con Zero) = Just (Zero, [])
     go [n] (Con Suc) = Just (Suc, [n])
     go [] (Con Refl) = Just (Refl, [])
-    go as (Con ch) =
-      let las = length as
-      in if las == conArity ch
-        then Just (ch, as)
-      else if las < conArity ch
-        then Nothing
-        else error "inspectCons: type error"
-    go _ _ = error "inspectCons: type error"
+    go as (Con (DataCon c))
+      | length as == conArity c = Just (DataCon c, as)
+      | length as < conArity c = Nothing
+    go _ (Con _) = error "inspectCons: type error"
+    go as (t :@: u) = go (u : as) t
+    go _ _ = Nothing
 
-match ch bs :: ConHead -> [ElimBranch]
+isCons :: Term -> Bool
+isCons = isJust . inspectCons
+
+match :: ConHead -> [ElimBranch] -> ElimBranch
 match _ [] = error "match"
 match ch (b:bs)
   | ch == elimCon b = b

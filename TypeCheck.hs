@@ -21,20 +21,18 @@ import Control.Monad.State
 -- TODO termination checking
 -- creo q tiene sentido hacerlo antes (si es solo sintactico)
 -- NICETOHAVE permitir recursion mutua (foetus)
+
+-- POST el tipo resultado esta reducido
+-- estaria bueno no reducir var globales
 infer :: MonadTypeCheck m => Term -> m Type
-infer (V v es) = do
-  ty <- case v of
-    Local x -> getLocalType x
-    Global x -> getGlobalType x -- aca puede q quiera globalType
-  etys <- mapM infer es -- TODO aca derberia usar check
-  appType ty etys 
-infer (Lit i) | i >= 0 = return natTy
+infer (V v) = case v of
+  Local x -> getLocalType x
+  Global x -> getGlobalType x
 infer (Lam arg st) = do shouldBeType (argType arg)
                         argty <- reduceType (argType arg)
-                        let arg' = arg { argType = argty}
-                        bindArg (argName arg') (argType arg')
+                        bindArg (argName arg) argty
                         ty <- infer (unscope st)
-                        unbind (argName arg')
+                        unbind (argName arg)
                         return ty
 infer (t :@: u) = do  tt <- infer t
                       case unType tt of
@@ -45,8 +43,7 @@ infer (t :@: u) = do  tt <- infer t
                           unbind (argName arg)
                           return ty'
                         _ -> throwError $ EFun tt
-infer (Con ch []) = inferCon ch
-infer (Con ch as) = infer (foldl (:@:) (Con ch []) as)
+infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
 infer (Fix f arg ty t) = do
@@ -56,7 +53,7 @@ infer (Fix f arg ty t) = do
   argty <- reduceType (argType arg)
   let arg' = arg { argType = argty }
   bindRec f ty' t arg'
-  bindArg (argName arg) (argType arg)
+  bindArg (argName arg') (argType arg')
   check t ty'
   unbind f
   unbind (argName arg')
@@ -77,7 +74,7 @@ infer (Ann t tt) = do
 inferCon :: MonadTypeCheck m => ConHead -> m Type
 inferCon Zero = return natTy
 inferCon Suc = return (Type (Pi (Arg natTy "_") (Scope natTy)))
-inferCon Refl = throwError (EIncomplete (Con Refl []))
+inferCon Refl = throwError (EIncomplete (Con Refl))
 inferCon (DataCon c) = return (conType c)
 
 inferData :: MonadTypeCheck m => DataType -> m Type
@@ -105,6 +102,7 @@ inferElim t bs = do
     _ -> throwError (ENotData tt)
 
 inferElim' :: MonadTypeCheck m => DataType -> [ElimBranch] -> m Type
+-- NICETOHAVE tratar de inferir ambas branches
 inferElim' Nat bs = do
   (zb, sb) <- casesNat bs
   ty <- infer (elimRes zb)
@@ -116,7 +114,7 @@ inferElim' Nat bs = do
 -- deberia cheqeuar q t y u esten bien formados
 inferElim' (Eq t u) bs = case bs of
   [] -> throwError EIncompleteBot
-  [ElimBranch Refl [] r] -> doAndRestore id (do
+  [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
     infer r)
   [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
@@ -140,27 +138,24 @@ inferSort (Type t) = do
 check :: MonadTypeCheck m => Term -> Type -> m ()
 check (Elim t ts) ty = do
   checkElim t ts ty
-check (Con ch as) ty = checkCon ch as ty
+check (Con ch) ty = checkCon ch ty
 check t ty = do
   tt <- infer t
   ty `tequal` tt
 
-checkCon :: MonadTypeCheck m => ConHead -> [Term] -> Type -> m ()
-checkCon Refl [] ty = do
+checkCon :: MonadTypeCheck m => ConHead -> Type -> m ()
+checkCon Refl ty = do
   ty' <- reduceType ty
   case unType ty' of
     (Data (Eq t u)) -> t `equal` u
     _ -> throwError (ECheckEq ty)
-checkCon c as ty = do
-  tt <- infer (foldl (:@:) (Con c []) as)
+checkCon c ty = do
+  tt <- infer (Con c)
   ty `tequal` tt
 
--- necesito el termino matcheado
--- no se bien como hacer esa sustitucion
--- para fix anda todo bien pq es una variable
--- pero en otro caso ni idea
+-- NICETOHAVE manejar otro caso ademas de variables
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
-checkElim (V (Local x) []) bs ty = do
+checkElim (V (Local x)) bs ty = do
   tt <- getLocalType x
   case unType tt of
     Data d -> checkElim' x d bs ty
@@ -192,14 +187,13 @@ checkElim' x Nat bs rty = do
 -- Eq
 checkElim' _ (Eq t u) bs rty = case bs of
   [] -> notUnifiable t u
-  [ElimBranch Refl [] r] -> doAndRestore id (do
+  [ElimBranch Refl [] r] -> doAndRestore (do
     tt <- infer t 
     unifyTerms t u
     ty <- infer r
     ty `tequal` rty)
   [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
   _ -> throwError EManyCases
-
 -- DataT
 checkElim' x (DataT d) bs rty = do
   dd <- getDataDef d
