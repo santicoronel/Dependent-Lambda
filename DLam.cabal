@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               DLam
-version:            0.1.0.2023
+version:            0.1.0
 
 executable DLam
     main-is:          Main.hs
@@ -17,6 +17,8 @@ executable DLam
       Unify
       Reduce
       Equality
+      Termination
+      PartialOrder
     ghc-options: 
         -threaded 
         -rtsopts 
@@ -30,5 +32,6 @@ executable DLam
         , prettyprinter-ansi-terminal
         , text
         , mtl
+        , disjoint-containers
     default-extensions:
           DuplicateRecordFields
