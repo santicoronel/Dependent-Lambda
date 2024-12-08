@@ -3,7 +3,7 @@
 module Termination ( terminationCheck ) where
 
 import Lang
-import qualified PartialOrder as PO
+import qualified Transitive as TR
 
 import Control.Monad.State
 import Control.Monad.Except
@@ -24,17 +24,17 @@ type VarId = Int
 data TContext = TC {
   mp :: [(Name, VarId)],
   rb :: [(VarId, VarId)],
-  lt :: PO.PO
+  lt :: TR.Transitive
 }
 
 emptyContext :: TContext
-emptyContext = TC [] [] PO.empty 
+emptyContext = TC [] [] TR.empty 
 
 
 addVar :: MonadState TContext m => Name -> m VarId
 addVar x = do
   ctx <- get
-  let (ix, lt') = PO.newVar (lt ctx)
+  let (ix, lt') = TR.newVar (lt ctx)
   put ctx { mp = (x, ix) : mp ctx, lt = lt' }
   return ix
 
@@ -45,7 +45,7 @@ addRel x y = do
   case lookup y (mp ctx) of
     Nothing -> error "Termination: addRel"
     Just iy ->
-      let lt' = PO.addRel (lt ctx) ix iy
+      let lt' = TR.addRel (lt ctx) ix iy
       in  put ctx { lt = lt' } 
 
 recVar :: MonadState TContext m => Name -> m (Maybe VarId)
@@ -60,7 +60,7 @@ lessThan x i = do
   ctx <- get
   case lookup x (mp ctx) of
     Nothing -> error "Termination: lessThan"
-    Just ix -> return (PO.rel (lt ctx) ix i)
+    Just ix -> return (TR.rel (lt ctx) ix i)
 
 addFixOp :: MonadState TContext m => Name -> Name -> m ()
 addFixOp r x = do
