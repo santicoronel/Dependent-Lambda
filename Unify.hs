@@ -11,16 +11,15 @@ import Control.Monad.Except
 import Control.Monad ( zipWithM_ )
 import Data.Maybe ( fromMaybe )
 
+-- TODO hacer unificacion mas piola
+
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m ()
 unifyTerms t u = do
   nft <- reduceNF t
   nfu <- reduceNF u
   go nft nfu
   where
--- TODO chequeo primero si son iguales? eso lo podria hacer union
--- TODO cuando falla union??
--- tengo q saber si ya estan en el uf antes de hacerlo? medio choto
-    go t1@(V (Local x)) t2@(V (Local y)) = do
+    go t1@(V (Free x)) t2@(V (Free y)) = do
       ctx <- get
       unifyVars x y
     go t u = case (inspectCons t, inspectCons u) of

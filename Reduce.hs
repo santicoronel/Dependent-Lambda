@@ -7,46 +7,53 @@ module Reduce (
 
 import Lang
 import MonadTypeCheck
+import Substitution
 
-import Control.Monad ( mapM, zipWithM_ )
+import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
+import Data.Foldable (foldrM)
 
 -- TODO llevar variables libres/frescas para poder
 -- dejar variables sin expandir
 -- asi podemos hacer reduceHead y tmb reducir fix una vez
+-- si hago esto no puedo restorear el entorno jeje
 
 
 reduceNF :: MonadTypeCheck m => Term -> m Term
-reduceNF t@(V (Local x)) = do
-  dx <- getLocalDef x
-  case dx of
-    Nothing -> return t
-    Just tx -> return tx
-reduceNF (V (Global x)) = getGlobalDef x
-reduceNF (Lam arg (Scope t)) = do
-  bindArg (argName arg) (argType arg)
-  t' <- reduceNF t
-  unbind (argName arg)
-  return (Lam arg (Scope t'))
+reduceNF (V v) = case v of
+  Bound i -> error "bound in reduce"
+  Free i -> do
+    dx <- getLocalDef i
+    case dx of
+      Nothing -> return (V v)
+      Just dx -> return dx
+  (Global x) -> getGlobalDef x
+-- TODO hace falta restorear??
+-- creo q si por el uf
+reduceNF (Lam arg t) = doAndRestore (do
+  i <- bindArg (argName arg) (argType arg)
+  let t' = open i t
+  rt <- reduceNF t
+  return (Lam arg (close i rt))
+  )
 reduceNF (t :@: u) = do
   t' <- reduceNF t
   u' <- reduceNF u
   case t' of
     (V _) -> return (t' :@: u')
-    (Lam arg (Scope s)) -> do
-      bindLocal (argName arg) (argType arg) u'
-      s' <- reduceNF s
-      unbind (argName arg)
-      return s'
+    (Lam arg t) -> do
+      i <- bindLocal (argName arg) (argType arg) u'
+      reduceNF (open i t)
     (_ :@: _) -> return (t' :@: u')
     (Fix f arg ty s) -> do
       -- TODO aplicar con var fresca
+      -- ahora puedo :) pero tengo q manejarlo en otro lado
+      -- i.e. agregar isRec, manejar bien en todos los usos
       if isCons u'
-        then doAndRestore (do
-          bindRec f ty t arg -- mm eto ta mal
-          bindLocal (argName arg) (argType arg) u'
-          reduceNF s
-          )
+        then do
+          (fi, xi) <- bindFun f ty t arg (Just u') -- mm eto ta mal
+          reduceNF (open2 fi xi s)
+          -- TODO close??
         else return (t' :@: u')
     _ -> error "type error en reduce"
 reduceNF (Elim t bs) = do
@@ -54,19 +61,22 @@ reduceNF (Elim t bs) = do
   case inspectCons t' of
     Just (ch, as) -> doAndRestore (do
       let b = match ch bs
-      zipWithM_ bindPattern (elimConArgs b) as
+      -- TODO pensar esto
+      -- puedo sustituir ooo llevar tipos y defs aparte
+      zipWithM_ bindPattern (elimConArgs b) as -- wtf like??
       reduceNF (elimRes b)
       )
     Nothing -> Elim t' <$> reduceNFBranches bs
 reduceNF t@(Fix f arg ty s) = doAndRestore (do
-  bindRec f ty t arg
-  reduceNF s
+  (fi, xi) <- bindFun f ty t arg Nothing
+  reduceNF (open2 fi xi s)
   )
-reduceNF (Pi arg (Scope ty)) = do
-  bindArg (argName arg) (argType arg)
-  ty' <- reduceNFType ty
-  unbind (argName arg)
-  return (Pi arg (Scope ty'))
+reduceNF (Pi arg ty) = doAndRestore (do
+  i <- bindArg (argName arg) (argType arg)
+  ty' <- reduceNFType (openType i ty)
+  argty <- reduceNFType (openType i (argType arg))
+  return (Pi arg ty')
+  )
 reduceNF (Ann t ty) = reduceNF t
 reduceNF t = return t
 
@@ -81,9 +91,11 @@ reduceNFBranches = mapM reduceNFBranch
     reduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
     reduceNFBranch b = doAndRestore (do
       let atys = consArgTypes (elimCon b)
-      zipWithM_ bindArg (elimConArgs b) atys
-      res <- reduceNF (elimRes b)
-      return b { elimRes = res }
+      -- TODO esto esta mal!!
+      is <- zipWithM bindArg (elimConArgs b) atys
+      let res = foldr open (elimRes b) is
+      res' <- reduceNF res
+      return b { elimRes = foldr close res' is }
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])

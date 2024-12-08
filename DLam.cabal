@@ -19,6 +19,7 @@ executable DLam
       Equality
       Termination
       Transitive
+      Substitution
     ghc-options: 
         -threaded 
         -rtsopts 
@@ -33,5 +34,6 @@ executable DLam
         , text
         , mtl
         , disjoint-containers
+        , extra
     default-extensions:
           DuplicateRecordFields

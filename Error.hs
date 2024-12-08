@@ -3,7 +3,8 @@ module Error where
 import Lang
 
 data TypeError =
-  EVar Name
+  EFree Int
+  | EGlobal Name
   | EFun Type
   | EIncomplete Term
   | EEq Term Term

@@ -11,6 +11,7 @@ import UnionFind
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe ( isJust )
+import Data.List.Extra ( (!?) )
 
 class (
   Monad m,
@@ -26,80 +27,87 @@ doAndRestore m = do
   put s
   return x
 
-lookupWith :: Name -> [a] -> (a -> Name) -> (a -> b) -> Maybe b
+lookupWith :: Eq i => i -> [a] -> (a -> i) -> (a -> b) -> Maybe b
 lookupWith _ [] _ _ = Nothing
 lookupWith x (b : bs) gn gt
   | x == gn b = Just (gt b)
   | otherwise = lookupWith x bs gn gt
 
-getLocalType :: MonadTypeCheck m => Name -> m Type
-getLocalType x = do ctx <- gets local
-                    case lookupWith x ctx localName localType of
-                      Just t -> return t
-                      Nothing -> throwError $ EVar x
+getLocalType :: MonadTypeCheck m => Int -> m Type
+getLocalType i = do ctx <- get
+                    case lookupWith i (local ctx) localVar localType of
+                      Just ty -> return ty
+                      Nothing -> throwError $ EFree i
 
 getGlobalType :: MonadTypeCheck m => Name -> m Type
 getGlobalType x = do  ctx <- gets global
                       case lookupWith x ctx globalName globalType of
                         Just t -> return t
-                        Nothing -> throwError $ EVar x
+                        Nothing -> throwError $ EGlobal x
 
-getLocalDef :: MonadTypeCheck m => Name -> m (Maybe Term)
-getLocalDef x = do
-  ctx <- gets local
-  case lookupWith x ctx localName localDef of
-    Just t -> return t
-    Nothing -> throwError $ EVar x
+getLocalDef :: MonadTypeCheck m => Int -> m (Maybe Term)
+getLocalDef i = do
+  ctx <- get
+  case lookupWith i (local ctx) localVar localDef of
+    Just d -> return d
+    Nothing -> throwError $ EFree i
 
 getGlobalDef :: MonadTypeCheck m => Name -> m Term
 getGlobalDef x = do
   ctx <- gets global
   case lookupWith x ctx globalName globalDef of
     Just t -> return t
-    Nothing -> throwError $ EVar x 
+    Nothing -> throwError $ EGlobal x 
 
-bindArg :: MonadState Context m => Name -> Type -> m ()
+bindArg :: MonadState Context m => Name -> Type -> m Int
 bindArg x ty = do
+  i <- state (freshVar x)
   ctx <- get
   let lc = local ctx
-      bx = LBinder x ty Nothing Nothing
       uf = unif ctx
-      uf' = insert uf x
-  put (ctx { local = bx : lc, unif = uf' })
+      bx = LBinder i ty Nothing
+  put (ctx { local = bx : lc, unif = insert uf i })
+  return i
 
-bindRec :: MonadState Context m => Name -> Type -> Term -> Arg -> m ()
-bindRec f ty df arg = do
+bindFun :: MonadState Context m => Name -> Type -> Term -> Arg -> Maybe Term -> m (Int, Int)
+bindFun f ty df arg dx = do
+  fi <- state (freshVar f)
+  xi <- state (freshVar (argName arg))
   ctx <- get
   let lc = local ctx
-      fty = Type (Pi arg (Scope ty))
-      bf = LBinder f fty (Just df) (Just (argName arg))
-      bx = LBinder (argName arg) (argType arg) Nothing Nothing
-  put (ctx { local =  bx : bf : lc})
+      fty = Type (Pi arg ty)
+      bf = LBinder fi fty (Just df)
+      bx = LBinder xi (argType arg) dx
+  put (ctx { local =  bx : bf : lc })
+  return (fi, xi)
 
-bindLocal :: MonadState Context m => Name -> Type -> Term -> m ()
-bindLocal x ty d = do ctx <- get
-                      let bc = local ctx
-                          b = LBinder x ty ( Just d) Nothing
-                      put (ctx { local = b : bc })
+bindLocal :: MonadState Context m => Name -> Type -> Term -> m Int
+bindLocal x ty d = do 
+  i <- state (freshVar x)
+  ctx <- get
+  let bc = local ctx
+      b = LBinder i ty (Just d)
+  put (ctx { local = b : bc })
+  return i
 
-updateWith :: (a -> Name) -> (a -> a) -> Name -> [a] -> Maybe [a]
+updateWith :: Eq i => (a -> i) -> (a -> a) -> i -> [a] -> Maybe [a]
 updateWith _ _ _ [] = Nothing
 updateWith gn up x (y:ys)
   | gn y == x = Just (up y : ys)
   | otherwise = (y :) <$> updateWith gn up x ys
 
-bindPattern :: MonadState Context m => Name -> Term -> m ()
+bindPattern :: MonadState Context m => Int -> Term -> m ()
 bindPattern x p = do
   ctx <- get
-  let l = updateWith localName (\lb -> lb { localDef = Just p }) x (local ctx)
+  let l = updateWith localVar (\lb -> lb { localDef = Just p }) x (local ctx)
   case l of
     Nothing -> error "bindPattern" 
     Just lc -> put (ctx { local = lc })
 
-unbindPattern :: MonadState Context m => Name -> m ()
+unbindPattern :: MonadState Context m => Int -> m ()
 unbindPattern x = do
   ctx <- get
-  let l = updateWith localName (\lb -> lb { localDef = Nothing }) x (local ctx)
+  let l = updateWith localVar (\lb -> lb { localDef = Nothing }) x (local ctx)
   case l of
     Nothing -> error "unbindPatter"
     Just lc -> put (ctx { local = lc })
@@ -111,43 +119,30 @@ getDataDef d = do
     Just dd -> return dd
     Nothing -> throwError (EDataNoDef d)
 
-deleteWith :: Name -> [a] -> (a -> Name) -> Maybe [a]
-deleteWith _ [] gn = Nothing
-deleteWith x (b : bs) gn
+deleteWith :: Eq i => (a -> i) -> i -> [a] -> Maybe [a]
+deleteWith gn _ [] = Nothing
+deleteWith gn x (b : bs)
   | x == gn b = Just bs
-  | otherwise = (b :) <$> deleteWith x bs gn
+  | otherwise = (b :) <$> deleteWith gn x bs
 
-unbind :: MonadTypeCheck m => Name -> m ()
+unbind :: MonadTypeCheck m => Int -> m ()
 unbind x = do ctx <- get
-              case deleteWith x (local ctx) localName of
+              case deleteWith localVar x (local ctx) of
                 Just lc -> put ctx { local = lc }
-                Nothing -> error ("unbind " ++ x)
+                Nothing -> error ("unbind " ++ show x)
 
-isRec :: MonadState Context m => Name -> m Bool
-isRec x = do
-  ctx <- get
-  case lookupWith x (local ctx) localName recArg of
-    Nothing -> error "isRec"
-    Just r -> return (isJust r)
-
-insertUnifNode :: MonadTypeCheck m => Name -> m ()
-insertUnifNode x = do
-  ctx <- get
-  let uf = insert (unif ctx) x
-  put ctx { unif = uf }
-
-unifyVars :: MonadTypeCheck m => Name -> Name -> m ()
+unifyVars :: MonadTypeCheck m => Int -> Int -> m ()
 unifyVars x y = do
   ctx <- get
   case union (unif ctx) x y of
-    Nothing -> error $ "union: " ++ x ++ y ++ "??"
+    Nothing -> error $ "union: " ++ show x ++ show y ++ "??"
     Just uf -> put (ctx { unif = uf })
 
-varEq :: MonadTypeCheck m => Name -> Name -> m Bool
+varEq :: MonadTypeCheck m => Int -> Int -> m Bool
 varEq x y = do
   ctx <- get
   case equivalent (unif ctx) x y of
-    Nothing -> error $ "unionfind.equivalent " ++ x ++ " " ++ y
+    Nothing -> error $ "unionfind.equivalent " ++ show x ++ " " ++ show y
     Just (uf, res) -> do
       put ctx { unif = uf }
       return res

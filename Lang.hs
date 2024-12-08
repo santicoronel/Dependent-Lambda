@@ -4,11 +4,11 @@ module Lang where
 
 type Name = String
 
-data Var = Local Name | Global Name deriving (Eq, Show)
+data Var =
+  Bound Int
+  | Free Int
+  | Global Name deriving (Eq, Show)
 
-newtype Scope a = Scope { unscope :: a } deriving (Eq, Show) -- Info?
-
-type ScopedTerm = Scope Term
 
 -- incluyo sort?
 newtype Type = Type { unType :: Term } deriving (Eq, Show)
@@ -48,15 +48,23 @@ data DataDef = DataDef {
   dataType :: Type,
   dataArity :: Int,
   dataCons :: [Constructor]
-} deriving (Eq, Show)
+} deriving Show
+
+instance Eq DataDef where
+  d == e = dataName d == dataName e
 
 -- TODO tipo debe estar reducido
 data Constructor = Constructor {
   conName :: Name,
   conType :: Type,
   conArity :: Int
-} deriving (Eq, Show)
+} deriving Show
+
+instance Eq Constructor where
+  c == d = conName c == conName d
+
 -- TODO chequear q no haya argumentos repetidos
+-- TODO pasar a locally nameless
 data ElimBranch = ElimBranch {
   elimCon :: ConHead,
   elimConArgs :: [Name],
@@ -73,7 +81,7 @@ infixl 9 :@:
 data Term =
   -- TODO pensar si estoy aprovechando los xes
   V Var
-  | Lam Arg (Scope Term)
+  | Lam Arg Term
   | Term :@: Term
   -- para aplicacion parcial eta expandimos??
   -- yo diria q no
@@ -81,14 +89,14 @@ data Term =
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
   | Elim Term [ElimBranch]
-  | Fix Name Arg Type Term -- aca no use scope
-  | Pi Arg (Scope Type)
+  | Fix Name Arg Type Term
+  | Pi Arg Type
   | Sort Sort
   | Ann Term Type
   deriving (Eq, Show)
 
-var :: Name -> Term
-var x = V (Local x)
+var :: Int -> Term
+var x = V (Free x)
 
 natTy :: Type
 natTy = Type (Data Nat)
@@ -109,5 +117,5 @@ consArgTypes Refl = []
 consArgTypes (DataCon c) = getArgsTypes (unType $ conType c)
 
 getArgsTypes :: Term -> [Type]
-getArgsTypes (Pi arg (Scope ty)) = argType arg : getArgsTypes (unType ty)
+getArgsTypes (Pi arg ty) = argType arg : getArgsTypes (unType ty)
 getArgsTypes ty = [Type ty]

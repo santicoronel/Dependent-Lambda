@@ -7,6 +7,7 @@ import Context
 import Unify
 import Equality
 import Reduce
+import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -22,49 +23,54 @@ import Control.Monad.State
 -- creo q tiene sentido hacerlo antes (si es solo sintactico)
 -- NICETOHAVE permitir recursion mutua (foetus)
 
--- POST el tipo resultado esta reducido
+-- POST el tipo resultado esta reducido (esta????)
 -- estaria bueno no reducir var globales
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
-  Local x -> getLocalType x
+  Bound x -> error "typecheck: bound"
+  Free x -> getLocalType x
   Global x -> getGlobalType x
-infer (Lam arg st) = do shouldBeType (argType arg)
-                        argty <- reduceType (argType arg)
-                        bindArg (argName arg) argty
-                        ty <- infer (unscope st)
-                        unbind (argName arg)
-                        return ty
+infer (Lam arg t) = doAndRestore (do
+  shouldBeType (argType arg)
+  argty <- reduceType (argType arg)
+  i <- bindArg (argName arg) argty
+  infer (open i t)
+  )
 infer (t :@: u) = do  tt <- infer t
+                      -- podria reducir aca, no?
                       case unType tt of
-                        Pi arg sty -> do
+                        Pi arg ty -> do
                           check u (argType arg)
-                          bindLocal (argName arg) (argType arg) u
-                          ty' <- reduceType (unscope sty)
-                          unbind (argName arg)
-                          return ty'
+                          i <- bindLocal (argName arg) (argType arg) u
+                          reduceType (openType i ty)
                         _ -> throwError $ EFun tt
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
-infer (Fix f arg ty t) = do
-  shouldBeType ty
-  ty' <- reduceType ty
+-- todo factorizar esto dios
+infer t@(Fix f arg ty u) = doAndRestore (do
   shouldBeType (argType arg)
-  argty <- reduceType (argType arg)
+  --
+  argty <- reduceType (argType arg) -- aca no lo necesito reducido
   let arg' = arg { argType = argty }
-  bindRec f ty' t arg'
-  bindArg (argName arg') (argType arg')
-  check t ty'
-  unbind f
-  unbind (argName arg')
-  return (Type (Pi arg' (Scope ty')))
-infer (Pi arg sty) = do shouldBeType (argType arg)
-                        tty <- inferSort (argType arg)
-                        bindArg (argName arg) (Type $ Sort tty)
-                        rty <- inferSort (unscope sty)
-                        unbind (argName arg)
-                        return $
-                          pisort tty arg rty
+  --
+  xi <- bindArg (argName arg) argty
+  let ty' = openType xi ty
+  --
+  shouldBeType ty'
+  rty <- reduceType ty'
+  let rty' = closeType xi rty
+  --
+  fi <- bindLocal f (Type $ Pi arg' rty') u
+  check (open2 fi xi t) rty'
+  return (Type (Pi arg' rty'))
+  )
+infer (Pi arg ty) = doAndRestore (do
+  tty <- inferSort (argType arg)
+  i <- bindArg (argName arg) (Type $ Sort tty)
+  sty <- inferSort (openType i ty)
+  return (pisort tty arg sty)
+  )
 infer (Sort (Set i)) = return (set (i + 1))
 infer (Ann t tt) = do
   shouldBeType tt
@@ -73,7 +79,7 @@ infer (Ann t tt) = do
 
 inferCon :: MonadTypeCheck m => ConHead -> m Type
 inferCon Zero = return natTy
-inferCon Suc = return (Type (Pi (Arg natTy "_") (Scope natTy)))
+inferCon Suc = return (Type (Pi (Arg natTy "_") natTy))
 inferCon Refl = throwError (EIncomplete (Con Refl))
 inferCon (DataCon c) = return (conType c)
 
@@ -155,7 +161,7 @@ checkCon c ty = do
 
 -- NICETOHAVE manejar otro caso ademas de variables
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
-checkElim (V (Local x)) bs ty = do
+checkElim (V (Free x)) bs ty = do
   tt <- getLocalType x
   case unType tt of
     Data d -> checkElim' x d bs ty
@@ -231,6 +237,7 @@ sucBranch (b:bs) = case elimCon b of
     (sb, bs') <- sucBranch bs
     return (sb, b : bs')
 
+-- TODO usar infersort
 shouldBeType :: MonadTypeCheck m => Type -> m ()
 shouldBeType (Type t) = do
   tt <- infer t
@@ -240,7 +247,7 @@ shouldBeType (Type t) = do
 
 appType :: MonadTypeCheck m => Type -> [Type] -> m Type
 appType ty [] = return ty
-appType (Type (Pi arg (Scope t))) (ty : tys) = do
+appType (Type (Pi arg t)) (ty : tys) = do
   argType arg `tequal` ty
   appType t tys
 appType ty _ = throwError (EFun ty)
