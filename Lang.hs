@@ -33,6 +33,7 @@ data ConHead =
   | DataCon Constructor
   deriving (Eq, Show)
 
+-- TODO hacer comoo constructor?
 data DataType =
   Nat
   | Eq Term Term
@@ -55,7 +56,7 @@ data Constructor = Constructor {
   conType :: Type,
   conArity :: Int
 } deriving (Eq, Show)
-
+-- TODO chequear q no haya argumentos repetidos
 data ElimBranch = ElimBranch {
   elimCon :: ConHead,
   elimConArgs :: [Name],

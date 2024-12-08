@@ -1,5 +1,7 @@
 module PartialOrder where
 
+-- TODO no es orden parcial
+
 data PO = PO {
   nv :: Int,
   re :: [(Int, Int)]
@@ -8,8 +10,8 @@ data PO = PO {
 empty :: PO
 empty = PO 0 []
 
-addVar :: PO -> (Int, PO)
-addVar (PO nv re) = (nv, PO (nv + 1) re)
+newVar :: PO -> (Int, PO)
+newVar (PO nv re) = (nv, PO (nv + 1) re)
 
 addRel :: PO -> Int -> Int -> PO
 addRel (PO nv re) x y 
