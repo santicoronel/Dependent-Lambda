@@ -12,17 +12,27 @@ data Var =
 
 
 -- incluyo sort?
-newtype Type = Type { unType :: Term } deriving (Eq, Show)
+newtype Type' t = Type { unType :: t } deriving (Eq, Show)
 
-newtype Sort = Set Int deriving (Eq, Show)
+type Type = Type' Term
+type SType = Type' STerm
+
+newtype Sort' = Set Int deriving (Eq, Show)
+
+type Sort = Sort'
+type SSort = Sort
 
 set :: Int -> Type
 set i = Type $ Sort $ Set i
 
-data Arg = Arg {
-  argType :: Type,
-  argName :: Name }
-  deriving (Eq, Show)
+data Arg' ty = Arg {
+  argName :: Name,
+  argType :: ty
+} deriving (Eq, Show)
+
+type Arg = Arg' Type
+type SArg = Arg' SType
+
 
 data ConHead = 
   Zero
@@ -31,7 +41,7 @@ data ConHead =
   | DataCon Constructor
   deriving (Eq, Show)
 
--- TODO hacer comoo constructor?
+-- TODO hacer como constructor?
 data DataType =
   Nat
   | Eq Term Term
@@ -64,11 +74,27 @@ instance Eq Constructor where
   c == d = conName c == conName d
 
 -- TODO chequear q no haya argumentos repetidos
-data ElimBranch = ElimBranch {
-  elimCon :: ConHead,
+data ElimBranch' c t = ElimBranch {
+  elimCon :: c,
   elimConArgs :: [Name],
-  elimRes :: Term
+  elimRes :: t
 } deriving (Eq, Show)
+
+type ElimBranch = ElimBranch' ConHead Term
+type SElimBranch = ElimBranch' Name STerm
+
+data STerm =
+  Lit Int
+  | SNat
+  | SEq STerm STerm
+  | SV Name
+  | SLam SArg STerm
+  | SApp STerm STerm
+  | SElim STerm [SElimBranch]
+  | SFix Name SArg SType STerm
+  | SPi SArg SType
+  | SSort SSort
+  | SAnn STerm SType
 
 infixl 9 :@:
 

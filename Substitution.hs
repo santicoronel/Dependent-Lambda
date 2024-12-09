@@ -20,7 +20,7 @@ varChanger bound local = go 0
 
     goType d (Type t) = Type $ go d t
 
-    goArg d (Arg ty n) = Arg (goType d ty) n
+    goArg d (Arg n ty) = Arg n (goType d ty)
 
     goBranch d (ElimBranch c as t) =
       let ar = length as

@@ -63,7 +63,7 @@ infer (Ann t tt) = do
 
 inferCon :: MonadTypeCheck m => ConHead -> m Type
 inferCon Zero = return natTy
-inferCon Suc = return (Type (Pi (Arg natTy "_") natTy))
+inferCon Suc = return (Type (Pi (Arg "_" natTy) natTy))
 inferCon Refl = throwError (EIncomplete (Con Refl))
 inferCon (DataCon c) = return (conType c)
 
