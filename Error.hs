@@ -2,6 +2,8 @@ module Error where
 
 import Lang
 
+-- TODO hacer bien
+
 data TypeError =
   EFree Int
   | EGlobal Name

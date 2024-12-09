@@ -25,8 +25,8 @@ equal t u = do
       unless xeqy (throwError (ENeq t1 t2))
     go (Lam a1 t) (Lam a2 u) = doAndRestore (do
       -- TODO hacer en MonadTypeCheck
-      i1 <- state (freshVar (argName a1))
-      i2 <- state (freshVar (argName a2))
+      i1 <- newVar (argName a1)
+      i2 <- newVar (argName a2)
       unifyVars i1 i2
       go (open i1 t) (open i2 u)
       )
@@ -41,17 +41,17 @@ equal t u = do
       equal t u
       bequal tbs ubs
     go (Fix f fa _ t) (Fix g ga _ u) = doAndRestore (do
-      fi <- state (freshVar f)
-      gi <- state (freshVar g)
+      fi <- newVar f
+      gi <- newVar g
       unifyVars fi gi
-      fai <- state (freshVar (argName fa))
-      gai <- state (freshVar (argName ga))
+      fai <- newVar (argName fa)
+      gai <- newVar (argName ga)
       unifyVars fai gai
       go (open2 fi fai t) (open2 gi gai u)
       )
     go (Pi a1 ty) (Pi a2 uy) = doAndRestore (do
-      i1 <- state (freshVar (argName a1))
-      i2 <- state (freshVar (argName a2))
+      i1 <- newVar (argName a1)
+      i2 <- newVar (argName a2)
       unifyVars i1 i2
       openType i1 ty `tequal` openType i2 uy)
     go (Sort s) (Sort t) = s `sequal` t
@@ -82,15 +82,15 @@ bequalV :: MonadTypeCheck m => Int -> Int -> [ElimBranch] -> [ElimBranch] -> m (
 bequalV x y (ElimBranch c a1 r1 : bs) b2 =
   let (ElimBranch _ a2 r2, b2') = findBranch c b2
   in  doAndRestore (do
-        is1 <- mapM (state . freshVar) a1
-        is2 <- mapM (state . freshVar) a2
+        is1 <- mapM newVar a1
+        is2 <- mapM newVar a2
         zipWithM_ unifyVars is1 is2
         let dx = foldl (:@:) (Con c) (map var is1)
             dy = foldl (:@:) (Con c) (map var is2)
         bindPattern x dx
         bindPattern y dy
-        let r1' = foldr open r1 is1
-            r2' = foldr open r2 is2
+        let r1' = openMany is1 r1
+            r2' = openMany is2 r2
         equal r1' r2')
       >> bequalV x y bs b2'
 
@@ -98,11 +98,11 @@ bequal :: MonadTypeCheck m => [ElimBranch] -> [ElimBranch] -> m ()
 bequal (b1 : bs1) bs2 =
   let (b2, bs2') = findBranch (elimCon b1) bs2
   in  doAndRestore (do
-    is1 <- mapM (state . freshVar) (elimConArgs b1)
-    is2 <- mapM (state . freshVar) (elimConArgs b2)
+    is1 <- mapM newVar (elimConArgs b1)
+    is2 <- mapM newVar (elimConArgs b2)
     zipWithM_ unifyVars is1 is2
-    let r1 = foldr open (elimRes b1) is1
-        r2 = foldr open (elimRes b2) is2
+    let r1 = openMany is1 (elimRes b1)
+        r2 = openMany is2 (elimRes b2)
     equal (elimRes b1) (elimRes b2)  
     )
     >> bequal bs1 bs2'

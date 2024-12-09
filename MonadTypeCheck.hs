@@ -20,6 +20,8 @@ class (
   ) => MonadTypeCheck m where
 
 
+-- TODO meter en otro modulo
+
 doAndRestore :: MonadState s m => m a -> m a
 doAndRestore m = do
   s <- get
@@ -33,11 +35,34 @@ lookupWith x (b : bs) gn gt
   | x == gn b = Just (gt b)
   | otherwise = lookupWith x bs gn gt
 
+updateWith :: Eq i => (a -> i) -> (a -> a) -> i -> [a] -> Maybe [a]
+updateWith _ _ _ [] = Nothing
+updateWith gn up x (y:ys)
+  | gn y == x = Just (up y : ys)
+  | otherwise = (y :) <$> updateWith gn up x ys
+
+deleteWith :: Eq i => (a -> i) -> i -> [a] -> Maybe [a]
+deleteWith gn _ [] = Nothing
+deleteWith gn x (b : bs)
+  | x == gn b = Just bs
+  | otherwise = (b :) <$> deleteWith gn x bs
+
+retry :: MonadError e m => m a -> m a -> m a
+retry a b = a `catchError` const b
+
+retryWithError :: MonadError e m => m a -> m a -> e -> m a
+retryWithError a b e = retry a b `catchError` const (throwError e)
+
+------------------------------------------------------------------------
+
+newVar :: MonadState Context m => Name -> m Int
+newVar = state . freshVar
+
 getLocalType :: MonadTypeCheck m => Int -> m Type
 getLocalType i = do ctx <- get
                     case lookupWith i (local ctx) localVar localType of
                       Just ty -> return ty
-                      Nothing -> throwError $ EFree i
+                      Nothing -> error "free var not in type context"
 
 getGlobalType :: MonadTypeCheck m => Name -> m Type
 getGlobalType x = do  ctx <- gets global
@@ -48,9 +73,7 @@ getGlobalType x = do  ctx <- gets global
 getLocalDef :: MonadTypeCheck m => Int -> m (Maybe Term)
 getLocalDef i = do
   ctx <- get
-  case lookupWith i (local ctx) localVar localDef of
-    Just d -> return d
-    Nothing -> throwError $ EFree i
+  return $ lookupWith i (localDefs ctx) defVar localDef
 
 getGlobalDef :: MonadTypeCheck m => Name -> m Term
 getGlobalDef x = do
@@ -61,56 +84,58 @@ getGlobalDef x = do
 
 bindArg :: MonadState Context m => Name -> Type -> m Int
 bindArg x ty = do
-  i <- state (freshVar x)
+  i <- newVar x
   ctx <- get
   let lc = local ctx
       uf = unif ctx
-      bx = LBinder i ty Nothing
+      bx = LBinder i ty
   put (ctx { local = bx : lc, unif = insert uf i })
   return i
 
+-- TODO esto es horrible
+-- mejor algo como bindFun / bindCall
 bindFun :: MonadState Context m => Name -> Type -> Term -> Arg -> Maybe Term -> m (Int, Int)
 bindFun f ty df arg dx = do
-  fi <- state (freshVar f)
-  xi <- state (freshVar (argName arg))
+  fi <- newVar f
+  xi <- newVar (argName arg)
   ctx <- get
   let lc = local ctx
+      ld = localDefs ctx
       fty = Type (Pi arg ty)
-      bf = LBinder fi fty (Just df)
-      bx = LBinder xi (argType arg) dx
-  put (ctx { local =  bx : bf : lc })
+      bf = LBinder fi fty
+      bdf = LDef fi df
+      bx = LBinder xi (argType arg)
+      lc' = bx : bf : lc
+      ld' = case dx of
+        Nothing -> bdf : ld
+        Just d -> LDef xi d : bdf : ld
+  put (ctx { local = lc', localDefs = ld' })
   return (fi, xi)
 
 bindLocal :: MonadState Context m => Name -> Type -> Term -> m Int
 bindLocal x ty d = do 
   i <- state (freshVar x)
   ctx <- get
-  let bc = local ctx
-      b = LBinder i ty (Just d)
-  put (ctx { local = b : bc })
+  let lc = local ctx
+      lds = localDefs ctx
+      lb = LBinder i ty
+      ld = LDef i d
+  put (ctx { local = lb : lc, localDefs = ld : lds })
   return i
-
-updateWith :: Eq i => (a -> i) -> (a -> a) -> i -> [a] -> Maybe [a]
-updateWith _ _ _ [] = Nothing
-updateWith gn up x (y:ys)
-  | gn y == x = Just (up y : ys)
-  | otherwise = (y :) <$> updateWith gn up x ys
 
 bindPattern :: MonadState Context m => Int -> Term -> m ()
 bindPattern x p = do
   ctx <- get
-  let l = updateWith localVar (\lb -> lb { localDef = Just p }) x (local ctx)
-  case l of
-    Nothing -> error "bindPattern" 
-    Just lc -> put (ctx { local = lc })
+  let lds = localDefs ctx
+  put ctx { localDefs = LDef x p : lds}
 
 unbindPattern :: MonadState Context m => Int -> m ()
 unbindPattern x = do
   ctx <- get
-  let l = updateWith localVar (\lb -> lb { localDef = Nothing }) x (local ctx)
-  case l of
+  let ml = deleteWith defVar x (localDefs ctx)
+  case ml of
     Nothing -> error "unbindPatter"
-    Just lc -> put (ctx { local = lc })
+    Just lc -> put (ctx { localDefs = lc })
 
 getDataDef :: MonadTypeCheck m => Name -> m DataDef
 getDataDef d = do
@@ -119,24 +144,11 @@ getDataDef d = do
     Just dd -> return dd
     Nothing -> throwError (EDataNoDef d)
 
-deleteWith :: Eq i => (a -> i) -> i -> [a] -> Maybe [a]
-deleteWith gn _ [] = Nothing
-deleteWith gn x (b : bs)
-  | x == gn b = Just bs
-  | otherwise = (b :) <$> deleteWith gn x bs
-
-unbind :: MonadTypeCheck m => Int -> m ()
-unbind x = do ctx <- get
-              case deleteWith localVar x (local ctx) of
-                Just lc -> put ctx { local = lc }
-                Nothing -> error ("unbind " ++ show x)
-
 unifyVars :: MonadTypeCheck m => Int -> Int -> m ()
 unifyVars x y = do
   ctx <- get
-  case union (unif ctx) x y of
-    Nothing -> error $ "union: " ++ show x ++ show y ++ "??"
-    Just uf -> put (ctx { unif = uf })
+  let uf = union (unif ctx) x y
+  put ctx { unif = uf }
 
 varEq :: MonadTypeCheck m => Int -> Int -> m Bool
 varEq x y = do
@@ -146,9 +158,3 @@ varEq x y = do
     Just (uf, res) -> do
       put ctx { unif = uf }
       return res
-
-retry :: MonadError e m => m a -> m a -> m a
-retry a b = a `catchError` const b
-
-retryWithError :: MonadError e m => m a -> m a -> e -> m a
-retryWithError a b e = retry a b `catchError` const (throwError e)

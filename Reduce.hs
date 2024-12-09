@@ -12,6 +12,7 @@ import Substitution
 import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
 import Data.Foldable (foldrM)
+import Context ( freshVar )
 
 -- TODO llevar variables libres/frescas para poder
 -- dejar variables sin expandir
@@ -61,10 +62,9 @@ reduceNF (Elim t bs) = do
   case inspectCons t' of
     Just (ch, as) -> doAndRestore (do
       let b = match ch bs
-      -- TODO pensar esto
-      -- puedo sustituir ooo llevar tipos y defs aparte
-      zipWithM_ bindPattern (elimConArgs b) as -- wtf like??
-      reduceNF (elimRes b)
+      is <- mapM newVar (elimConArgs b)
+      zipWithM_ bindPattern is as
+      reduceNF (openMany is (elimRes b))
       )
     Nothing -> Elim t' <$> reduceNFBranches bs
 reduceNF t@(Fix f arg ty s) = doAndRestore (do
@@ -93,9 +93,9 @@ reduceNFBranches = mapM reduceNFBranch
       let atys = consArgTypes (elimCon b)
       -- TODO esto esta mal!!
       is <- zipWithM bindArg (elimConArgs b) atys
-      let res = foldr open (elimRes b) is
+      let res = openMany is (elimRes b)
       res' <- reduceNF res
-      return b { elimRes = foldr close res' is }
+      return b { elimRes = openMany is res' }
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])

@@ -21,7 +21,7 @@ varChanger bound local = go 0
     goType d (Type t) = Type $ go d t
 
     goArg d (Arg ty n) = Arg (goType d ty) n
-    
+
     goBranch d (ElimBranch c as t) =
       let ar = length as
       in  ElimBranch c as (go (d + 1) t)
@@ -48,6 +48,9 @@ open2 f x = varChanger bnd (\_ n -> V (Free n))
 
 open2Type :: Int -> Int -> Type -> Type
 open2Type f x = Type . open2 f x . unType
+
+openMany :: [Int] -> Term -> Term
+openMany is t = foldr open t is
 
 close :: Int -> Term -> Term
 close x = varChanger (\_ i -> V (Bound i)) lcl

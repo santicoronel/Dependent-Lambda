@@ -115,7 +115,7 @@ checkBranchWith :: VarId -> ElimBranch -> CheckedTerm
 checkBranchWith x b = doAndRestore (do
   is <- mapM addVar (elimConArgs b)
   mapM_ (`addRel` x) is
-  check (foldr open (elimRes b) is)
+  check (openMany is (elimRes b))
   )
 
 checkBranch :: ElimBranch -> CheckedTerm

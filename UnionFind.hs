@@ -7,45 +7,24 @@ import qualified Data.DisjointSet as DS
 -- de q exista
 -- es mas costoso pero puede servir para debuggear
 
-data UnionFind x = UnionFind {
-  nn :: Int,
-  ds :: DS.DisjointSet Int,
-  mp :: [(x, Int)]
-} 
+newtype UnionFind x = UnionFind { ds :: DS.DisjointSet x }
 
-empty :: Eq x => UnionFind x
-empty = UnionFind 0 DS.empty []
+empty :: Ord x => UnionFind x
+empty = UnionFind DS.empty
 
-insert :: Eq x => UnionFind x -> x -> UnionFind x
-insert (UnionFind nn ds mp) x = UnionFind {
-  nn = nn + 1,
-  ds = DS.insert nn ds,
-  mp = (x, nn) : mp
-}
+insert :: Ord x => UnionFind x -> x -> UnionFind x
+insert (UnionFind ds) x = UnionFind (DS.insert x ds) 
 
-union :: Eq x => UnionFind x -> x -> x -> Maybe (UnionFind x)
-union (UnionFind nn ds mp) x y = do
-  xn <- lookup x mp
-  yn <- lookup y mp
-  return (UnionFind {
-    nn = nn,
-    ds = DS.union xn yn ds,
-    mp = mp
-})
+union :: Ord x => UnionFind x -> x -> x -> UnionFind x
+union (UnionFind ds) x y = UnionFind (DS.union x y ds)
 
-equivalent :: Eq x => UnionFind x -> x -> x -> Maybe (UnionFind x, Bool)
+equivalent :: Ord x => UnionFind x -> x -> x -> Maybe (UnionFind x, Bool)
 -- aca hacemos compresion
 equivalent uf x y = do
-  xn <- lookup x (mp uf)
-  yn <- lookup y (mp uf)
-  let (mrx, ds') = DS.representative' xn (ds uf)
-      (mry, ds'') = DS.representative' yn ds'
+  let (mrx, ds') = DS.representative' x (ds uf)
+      (mry, ds'') = DS.representative' y ds'
   rx <- mrx
   ry <- mry
   return (uf { ds = ds'' }, rx == ry)
 -- aca no
-equivalent uf x y = do
-  xn <- lookup x (mp uf)
-  yn <- lookup y (mp uf)
-  return (uf, DS.equivalent xn yn (ds uf))
-  
+equivalent uf x y = Just (uf, DS.equivalent x y (ds uf))
