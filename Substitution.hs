@@ -37,6 +37,9 @@ open x = varChanger bnd (\_ n -> V (Free n))
 openType :: Int -> Type -> Type
 openType x = Type . open x . unType
 
+openSort :: Int -> Sort -> Sort
+openSort i s = s
+
 open2 :: Int -> Int -> Term -> Term
 open2 f x = varChanger bnd (\_ n -> V (Free n))
   where
@@ -61,6 +64,9 @@ close x = varChanger (\_ i -> V (Bound i)) lcl
 
 closeType :: Int -> Type -> Type
 closeType x = Type . close x . unType
+
+closeSort :: Int -> Sort -> Sort
+closeSort i s = s
 
 close2 :: Int -> Int -> Term -> Term
 close2 f x = varChanger (\_ i -> V (Bound i)) lcl

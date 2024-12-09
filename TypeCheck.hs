@@ -14,9 +14,6 @@ import Control.Monad.State
 
 -- TODO chequear CUANDO y DONDE se reducen terminos/tipos
 
--- TODO creo q esto no hace falta che
--- POST el tipo resultado esta reducido (esta????)
--- estaria bueno no reducir var globales
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
   Bound x -> error "typecheck: bound"
@@ -24,18 +21,17 @@ infer (V v) = case v of
   Global x -> getGlobalType x
 infer (Lam arg t) = doAndRestore (do
   shouldBeType (argType arg)
-  argty <- reduceType (argType arg)
-  i <- bindArg (argName arg) argty
+  i <- bindArg (argName arg) (argType arg)
   infer (open i t)
   )
 infer (t :@: u) = do  tt <- infer t
-                      -- podria reducir aca, no?
-                      case unType tt of
+                      tt' <- reduceType tt
+                      case unType tt' of
                         Pi arg ty -> do
                           check u (argType arg)
                           i <- bindLocal (argName arg) (argType arg) u
                           reduceType (openType i ty)
-                        _ -> throwError $ EFun tt
+                        _ -> throwError $ EFun tt'
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
@@ -43,26 +39,23 @@ infer (Elim t bs) = inferElim t bs
 infer t@(Fix f arg ty u) = doAndRestore (do
   shouldBeType (argType arg)
   --
-  argty <- reduceType (argType arg) -- aca no lo necesito reducido
-  let arg' = arg { argType = argty }
-  --
-  xi <- bindArg (argName arg') (argType arg')
+  xi <- bindArg (argName arg) (argType arg)
   let ty' = openType xi ty
   --
   shouldBeType ty'
   rty <- reduceType ty'
   let rty' = closeType xi rty
   --
-  fi <- bindLocal f (Type $ Pi arg' rty') u
+  fi <- bindLocal f (Type $ Pi arg rty') u
   check (open2 fi xi t) rty'
-  return (Type (Pi arg' rty'))
+  return (Type (Pi arg rty'))
   )
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (Type $ Sort tty)
   sty <- inferSort (openType i ty)
   -- TODO open/close sort
-  let Sort sty' = close i $ Sort sty
+  let sty' = closeSort i sty
   return (pisort tty arg sty')
   )
 infer (Sort (Set i)) = return (set (i + 1))
@@ -97,10 +90,10 @@ inferData (DataT dn) = do
 inferElim :: MonadTypeCheck m => Term -> [ElimBranch] -> m Type
 inferElim t bs = do
   tt <- infer t
-  -- aca podria reducir
-  case unType tt of
+  tt' <- reduceType tt
+  case unType tt' of
     Data dt -> inferElim' dt bs
-    _ -> throwError (ENotData tt)
+    _ -> throwError (ENotData tt')
 
 inferElim' :: MonadTypeCheck m => DataType -> [ElimBranch] -> m Type
 -- NICETOHAVE tratar de inferir ambas branches
@@ -132,8 +125,8 @@ inferElim' (DataT d) bs = do
 inferSort :: MonadTypeCheck m => Type -> m Sort
 inferSort (Type t) = do
   tt <- infer t
-  -- aca deberia reducir
-  case unType tt of
+  tt' <- reduceType tt
+  case unType tt' of
     Sort s -> return s
     _ -> throwError (ENotType t)
 
@@ -159,10 +152,10 @@ checkCon c ty = do
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
 checkElim (V (Free x)) bs ty = do
   tt <- getLocalType x
-  -- aca deberia reducir
-  case unType tt of
+  tt' <- reduceType tt
+  case unType tt' of
     Data d -> checkElim' x d bs ty
-    tt' -> throwError (ENotData tt)
+    _ -> throwError (ENotData tt')
 checkElim t bs ty = do
   et <- inferElim t bs
   et `tequal` ty
@@ -190,7 +183,7 @@ checkElim' x Nat bs rty = do
 checkElim' _ (Eq t u) bs rty = case bs of
   [] -> notUnifiable t u
   [ElimBranch Refl [] r] -> doAndRestore (do
-    tt <- infer t
+    tt <- infer t -- TODO para que es esto??
     unifyTerms t u
     ty <- infer r
     ty `tequal` rty)

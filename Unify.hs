@@ -40,14 +40,8 @@ inspectCons = go []
     go _ _ = Nothing
 
 notUnifiable :: MonadTypeCheck m => Term -> Term -> m ()
-notUnifiable t u = do
-  ctx <- get
-  catchError
-    (do unifyTerms t u 
-        put (ctx { unif = unif ctx }) 
-        throwError EUnifiable)
+notUnifiable t u = catchError
+    (doAndRestore (unifyTerms t u >> throwError EUnifiable))
     (\e -> case e of
-      ENotUnif -> do
-        put (ctx { unif = unif ctx})
-        return ()
+      ENotUnif -> return ()
       _ -> throwError e)
