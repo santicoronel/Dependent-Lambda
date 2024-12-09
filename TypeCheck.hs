@@ -12,8 +12,6 @@ import Substitution
 import Control.Monad.Except
 import Control.Monad.State
 
--- TODO chequear CUANDO y DONDE se reducen terminos/tipos
-
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
   Bound x -> error "typecheck: bound"
@@ -54,7 +52,6 @@ infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (Type $ Sort tty)
   sty <- inferSort (openType i ty)
-  -- TODO open/close sort
   let sty' = closeSort i sty
   return (pisort tty arg sty')
   )
@@ -107,7 +104,7 @@ inferElim' Nat bs = doAndRestore (do
   return ty
   )
 inferElim' (Eq t u) bs = case bs of
-  [] -> throwError EIncompleteBot -- TODO reemplazar esto por `Absurd`
+  [] -> throwError EIncompleteBot
   [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
     infer r)
@@ -132,9 +129,13 @@ inferSort (Type t) = do
 
 check :: MonadTypeCheck m => Term -> Type -> m ()
 check (Elim t ts) ty = do
+  shouldBeType ty
   checkElim t ts ty
-check (Con ch) ty = checkCon ch ty
+check (Con ch) ty = do
+  shouldBeType ty
+  checkCon ch ty
 check t ty = do
+  shouldBeType ty
   tt <- infer t
   ty `tequal` tt
 
@@ -180,11 +181,11 @@ checkElim' x Nat bs rty = do
       check t (openType i rty)
       )
 -- Eq
-checkElim' _ (Eq t u) bs rty = case bs of
+checkElim' x (Eq t u) bs rty = case bs of
   [] -> notUnifiable t u
   [ElimBranch Refl [] r] -> doAndRestore (do
-    tt <- infer t -- TODO para que es esto??
     unifyTerms t u
+    bindPattern x (Con Refl)
     ty <- infer r
     ty `tequal` rty)
   [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
@@ -220,7 +221,6 @@ sucBranch [] = throwError ECasesMissing
 sucBranch (b:bs) = case elimCon b of
   Suc -> do
     unless (length (elimConArgs b) == 1) (throwError (ENumberOfArgs Suc))
-    -- TODO chequear q no se repitan nombres en los argumentos
     return (b, bs)
   _ -> do
     (sb, bs') <- sucBranch bs

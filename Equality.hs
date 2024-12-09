@@ -12,7 +12,6 @@ import Context (freshVar)
 import Substitution
 
 -- NICETOHAVE usar reduceHead
--- TODO ver uf
 equal :: MonadTypeCheck m => Term -> Term -> m ()
 equal t u = do
   rt <- reduceNF t
@@ -24,7 +23,6 @@ equal t u = do
       xeqy <- x `varEq` y
       unless xeqy (throwError (ENeq t1 t2))
     go (Lam a1 t) (Lam a2 u) = doAndRestore (do
-      -- TODO hacer en MonadTypeCheck
       i1 <- newVar (argName a1)
       i2 <- newVar (argName a2)
       unifyVars i1 i2

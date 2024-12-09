@@ -14,11 +14,9 @@ import Data.Maybe ( isJust )
 import Data.Foldable (foldrM)
 import Context ( freshVar )
 
--- TODO llevar variables libres/frescas para poder
--- dejar variables sin expandir
--- asi podemos hacer reduceHead y tmb reducir fix una vez
--- si hago esto no puedo restorear el entorno jeje
-
+-- TODO eta reducccion
+-- TODO reduccion parcial
+-- TODO no expandir vars recursivas
 
 reduceNF :: MonadTypeCheck m => Term -> m Term
 reduceNF (V v) = case v of
@@ -52,9 +50,10 @@ reduceNF (t :@: u) = do
       -- i.e. agregar isRec, manejar bien en todos los usos
       if isCons u'
         then do
-          (fi, xi) <- bindFun f ty t arg (Just u') -- mm eto ta mal
+          (fi, xi) <- bindFun f ty t arg (Just u')
           reduceNF (open2 fi xi s)
           -- TODO close??
+          -- no deberia hacer falta je
         else return (t' :@: u')
     _ -> error "type error en reduce"
 reduceNF (Elim t bs) = do
@@ -83,15 +82,13 @@ reduceNF t = return t
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType (Type t) = Type <$> reduceNF t
 
--- TODO aca hay un problema
--- necesito informacion de tipo
 reduceNFBranches :: MonadTypeCheck m => [ElimBranch] -> m [ElimBranch]
 reduceNFBranches = mapM reduceNFBranch
   where
     reduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
     reduceNFBranch b = doAndRestore (do
       let atys = consArgTypes (elimCon b)
-      -- TODO esto esta mal!!
+      -- NICETOHAVE abstraer este patron
       is <- zipWithM bindArg (elimConArgs b) atys
       let res = openMany is (elimRes b)
       res' <- reduceNF res

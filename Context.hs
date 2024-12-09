@@ -3,11 +3,6 @@ module Context where
 import Lang
 import UnionFind ( UnionFind, insert )
 
--- TODO quizas llevar tipos y definiciones en distintos
--- binders
--- puedo pensar en sustituir y listo peeero bindear un pattern
--- es un problema
-
 data LocalBinder = LBinder {
   localVar :: Int,
   localType :: Type

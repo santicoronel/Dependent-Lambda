@@ -11,7 +11,7 @@ import Control.Monad.Except
 import Control.Monad ( zipWithM_ )
 import Data.Maybe ( fromMaybe )
 
--- TODO hacer unificacion mas piola
+-- NICETOHAVE hacer unificacion mas piola
 
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m ()
 unifyTerms t u = do

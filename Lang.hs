@@ -27,9 +27,6 @@ data Arg = Arg {
 data ConHead = 
   Zero
   | Suc
-  -- TODO este caso es medio raro
-  -- no quiero pasarle mas info en la introduccion
-  -- pero me gustaria bindear un argumento en la eliminacion
   | Refl
   | DataCon Constructor
   deriving (Eq, Show)
@@ -42,6 +39,7 @@ data DataType =
   deriving (Eq, Show)
 
 -- TODO tipo debe estar reducido
+-- mejor: chequeo sintactico, no permitir cosa rara
 data DataDef = DataDef { 
   dataName :: Name,
   dataSort :: Sort,
@@ -55,6 +53,7 @@ instance Eq DataDef where
   d == e = dataName d == dataName e
 
 -- TODO tipo debe estar reducido
+-- mejor: chequeo sintactico, simil data
 data Constructor = Constructor {
   conName :: Name,
   conType :: Type,
@@ -65,7 +64,6 @@ instance Eq Constructor where
   c == d = conName c == conName d
 
 -- TODO chequear q no haya argumentos repetidos
--- TODO pasar a locally nameless
 data ElimBranch = ElimBranch {
   elimCon :: ConHead,
   elimConArgs :: [Name],
@@ -74,9 +72,7 @@ data ElimBranch = ElimBranch {
 
 infixl 9 :@:
 
--- TODO Absurd
 data Term =
-  -- TODO pensar si estoy aprovechando los xes
   V Var
   | Lam Arg Term
   | Term :@: Term

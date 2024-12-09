@@ -2,11 +2,6 @@ module UnionFind where
 
 import qualified Data.DisjointSet as DS
 
--- TODO hacer removeNode solo para sanity check
--- i.e. sacarlo de mp, y cuando hacemos find nos aseguramos
--- de q exista
--- es mas costoso pero puede servir para debuggear
-
 newtype UnionFind x = UnionFind { ds :: DS.DisjointSet x }
 
 empty :: Ord x => UnionFind x

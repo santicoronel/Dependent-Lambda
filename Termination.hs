@@ -12,15 +12,14 @@ import Substitution
 
 -- NICETOHAVE permitir recursion mutua (foetus)
 
--- TODO hacer bien
--- tengo q cerrar los terminos antes, usando la lista de nombres
+-- TODO mejor error
 newtype TError = TError Term
 
-data TChecked = TE TError | TOK
+data TChecked = TE TError [Name] | TOK
 
 terminationCheck :: Term -> TChecked
 terminationCheck t = case runState (runExceptT (check t)) emptyContext of
-  (Left e, ctx) -> TE e -- TODO cerrar termino
+  (Left e, ctx) -> TE e (ns ctx)
   (Right (), _) -> TOK
 
 type VarId = Int
@@ -81,7 +80,7 @@ check t@(V (Free x)) = do
   rf <- recVar x
   case rf of
     Nothing -> return ()
-    Just _ -> throwError (TError t) 
+    Just _ -> throwError (TError t)
 check (Lam arg t) = doAndRestore (do
   checkType (argType arg)
   x <- addVar (argName arg)
