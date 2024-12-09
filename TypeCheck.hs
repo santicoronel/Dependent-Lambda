@@ -12,17 +12,9 @@ import Substitution
 import Control.Monad.Except
 import Control.Monad.State
 
-
 -- TODO chequear CUANDO y DONDE se reducen terminos/tipos
---
--- NICETOHAVE uando hago pattern matching, reemplazar
--- las ocurrencias de la variable en los tipos bindeados
--- Ahora mismo podria tomar los argumentos *despues* de hacer pm
---
--- TODO termination checking
--- creo q tiene sentido hacerlo antes (si es solo sintactico)
--- NICETOHAVE permitir recursion mutua (foetus)
 
+-- TODO creo q esto no hace falta che
 -- POST el tipo resultado esta reducido (esta????)
 -- estaria bueno no reducir var globales
 infer :: MonadTypeCheck m => Term -> m Type
@@ -54,7 +46,7 @@ infer t@(Fix f arg ty u) = doAndRestore (do
   argty <- reduceType (argType arg) -- aca no lo necesito reducido
   let arg' = arg { argType = argty }
   --
-  xi <- bindArg (argName arg) argty
+  xi <- bindArg (argName arg') (argType arg')
   let ty' = openType xi ty
   --
   shouldBeType ty'
@@ -69,7 +61,9 @@ infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (Type $ Sort tty)
   sty <- inferSort (openType i ty)
-  return (pisort tty arg sty)
+  -- TODO open/close sort
+  let Sort sty' = close i $ Sort sty
+  return (pisort tty arg sty')
   )
 infer (Sort (Set i)) = return (set (i + 1))
 infer (Ann t tt) = do
@@ -86,7 +80,7 @@ inferCon (DataCon c) = return (conType c)
 inferData :: MonadTypeCheck m => DataType -> m Type
 inferData Nat = return (set 0)
 inferData (Eq t u) = do
-  ty <- retryWithError 
+  ty <- retryWithError
           (inferAndCheck t u)
           (inferAndCheck u t)
           (EEq t u)
@@ -103,23 +97,24 @@ inferData (DataT dn) = do
 inferElim :: MonadTypeCheck m => Term -> [ElimBranch] -> m Type
 inferElim t bs = do
   tt <- infer t
+  -- aca podria reducir
   case unType tt of
     Data dt -> inferElim' dt bs
     _ -> throwError (ENotData tt)
 
 inferElim' :: MonadTypeCheck m => DataType -> [ElimBranch] -> m Type
 -- NICETOHAVE tratar de inferir ambas branches
-inferElim' Nat bs = do
+inferElim' Nat bs = doAndRestore (do
   (zb, sb) <- casesNat bs
   ty <- infer (elimRes zb)
   let [n] = elimConArgs sb
-  bindArg n natTy
-  check (elimRes sb) ty
-  unbind n
+  i <- bindArg n natTy
+  let sr = open i (elimRes sb)
+  check sr ty
   return ty
--- deberia cheqeuar q t y u esten bien formados
+  )
 inferElim' (Eq t u) bs = case bs of
-  [] -> throwError EIncompleteBot
+  [] -> throwError EIncompleteBot -- TODO reemplazar esto por `Absurd`
   [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
     infer r)
@@ -137,6 +132,7 @@ inferElim' (DataT d) bs = do
 inferSort :: MonadTypeCheck m => Type -> m Sort
 inferSort (Type t) = do
   tt <- infer t
+  -- aca deberia reducir
   case unType tt of
     Sort s -> return s
     _ -> throwError (ENotType t)
@@ -163,6 +159,7 @@ checkCon c ty = do
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
 checkElim (V (Free x)) bs ty = do
   tt <- getLocalType x
+  -- aca deberia reducir
   case unType tt of
     Data d -> checkElim' x d bs ty
     tt' -> throwError (ENotData tt)
@@ -170,7 +167,7 @@ checkElim t bs ty = do
   et <- inferElim t bs
   et `tequal` ty
 
-checkElim' :: MonadTypeCheck m => Name -> DataType -> [ElimBranch] -> Type ->  m ()
+checkElim' :: MonadTypeCheck m => Int -> DataType -> [ElimBranch] -> Type ->  m ()
 -- Nat
 checkElim' x Nat bs rty = do
   (zb, sb) <- casesNat bs
@@ -178,23 +175,22 @@ checkElim' x Nat bs rty = do
   let [n] = elimConArgs sb
   checkElimSuc x (elimRes sb) n
   where
-    checkElimZero :: MonadTypeCheck m => Name -> Term -> m ()
+    checkElimZero :: MonadTypeCheck m => Int -> Term -> m ()
     checkElimZero x t = do
-      bindLocal x natTy zero
+      bindPattern x zero
       check t rty
-      unbind x
-    checkElimSuc :: MonadTypeCheck m => Name -> Term -> Name -> m ()
-    checkElimSuc x t n = do
-      bindArg n natTy
-      bindLocal x natTy (suc (var n))
-      check t rty
-      unbind x
-      unbind n
+      unbindPattern x
+    checkElimSuc :: MonadTypeCheck m => Int -> Term -> Name -> m ()
+    checkElimSuc x t n = doAndRestore (do
+      i <- bindArg n natTy
+      bindPattern x (suc (var i))
+      check t (openType i rty)
+      )
 -- Eq
 checkElim' _ (Eq t u) bs rty = case bs of
   [] -> notUnifiable t u
   [ElimBranch Refl [] r] -> doAndRestore (do
-    tt <- infer t 
+    tt <- infer t
     unifyTerms t u
     ty <- infer r
     ty `tequal` rty)
@@ -206,7 +202,7 @@ checkElim' x (DataT d) bs rty = do
   checkElimDataT x dd bs rty
   where
     -- TODO
-    checkElimDataT :: MonadTypeCheck m => Name -> DataDef -> [ElimBranch] -> Type -> m ()
+    checkElimDataT :: MonadTypeCheck m => Int -> DataDef -> [ElimBranch] -> Type -> m ()
     checkElimDataT = undefined
 
 casesNat :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, ElimBranch)
@@ -214,7 +210,7 @@ casesNat bs = do
   (zb, bs') <- zeroBranch bs
   (sb, bs'') <- sucBranch bs'
   unless (null bs'') (throwError EManyCases)
-  return (zb, sb)    
+  return (zb, sb)
 
 zeroBranch :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, [ElimBranch])
 zeroBranch [] = throwError ECasesMissing
@@ -237,20 +233,8 @@ sucBranch (b:bs) = case elimCon b of
     (sb, bs') <- sucBranch bs
     return (sb, b : bs')
 
--- TODO usar infersort
 shouldBeType :: MonadTypeCheck m => Type -> m ()
-shouldBeType (Type t) = do
-  tt <- infer t
-  case unType tt of
-    Sort _ -> return ()
-    _ -> throwError (ENotType t)
-
-appType :: MonadTypeCheck m => Type -> [Type] -> m Type
-appType ty [] = return ty
-appType (Type (Pi arg t)) (ty : tys) = do
-  argType arg `tequal` ty
-  appType t tys
-appType ty _ = throwError (EFun ty)
+shouldBeType ty = void (inferSort ty)
 
 eqsort :: Sort -> Type
 eqsort (Set i) = set i

@@ -4,6 +4,7 @@ module Lang where
 
 type Name = String
 
+-- TODO type allias
 data Var =
   Bound Int
   | Free Int
@@ -73,11 +74,7 @@ data ElimBranch = ElimBranch {
 
 infixl 9 :@:
 
--- TODO hago lo de la lista de elims o no??
--- tiene sentido hacerlo tambien para los constructores la verdá
--- no se si me complejiza mucho el typeChecker
--- TODO tengo un problema con el unionfind y name shadowing
--- podria tener un mapa de variables a nodos del uf
+-- TODO Absurd
 data Term =
   -- TODO pensar si estoy aprovechando los xes
   V Var

@@ -10,6 +10,8 @@ import Control.Monad.Except
 import MonadTypeCheck ( doAndRestore )
 import Substitution
 
+-- NICETOHAVE permitir recursion mutua (foetus)
+
 -- TODO hacer bien
 -- tengo q cerrar los terminos antes, usando la lista de nombres
 newtype TError = TError Term
