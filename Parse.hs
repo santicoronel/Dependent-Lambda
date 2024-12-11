@@ -7,9 +7,9 @@ import Lang hiding ( var )
 import Text.Parsec hiding ( runP )
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Token as Tok
-import qualified Text.Parsec.Expr as Ex
-import Text.Parsec.Expr (Operator, Assoc)
 import Control.Monad.Identity (Identity)
+import Control.Exception.Extra (tryBool)
+import GHC.IO (unsafePerformIO)
 
 type P = Parsec String ()
 
@@ -109,15 +109,15 @@ atom =
   <|> szero
   <|> ssuc
   <|> srefl
-  <|> spi
+  <|> try spi
   <|> sort
-  <|> parens expr
+  <|> parens sterm
 
 lam :: P STerm
 lam = do  reserved "\\" <|> reserved "λ"
           a <- arg
           symbol "."
-          SLam a <$> expr
+          SLam a <$> sterm
 
 fix :: P STerm
 fix = do
@@ -127,13 +127,13 @@ fix = do
   reservedOp ":"
   ty <- stype
   reservedOp "."
-  t <- expr
+  t <- sterm
   return (SFix f a ty t)
 
 elim :: P STerm
 elim = do
   reserved "elim"
-  t <- expr
+  t <- sterm
   bs <- braces (semiSep branch)
   return (SElim t bs)
 
@@ -142,7 +142,7 @@ branch = do
   c <- name
   as <- many name
   reservedOp ":=" <|> reservedOp "≔"
-  t <- expr
+  t <- sterm
   return (ElimBranch c as t)
 
 
@@ -152,26 +152,34 @@ app = do
   args <- many atom
   return (foldl SApp f args)
 
+expr :: P STerm
+expr = do
+  app <|> lam <|> fix
+
+
+equalOp :: STerm -> P STerm
+equalOp t = do
+  reservedOp "="
+  u <- expr
+  return (SEq t u)
+
+ann :: STerm -> P STerm
+ann t = do
+  reservedOp ":"
+  ty <- stype
+  return (SAnn t ty)
+
 sterm :: P STerm
-sterm = app <|> lam <|> fix
+sterm = do
+  t <- expr
+  ann t <|> equalOp t <|> return t
+
 
 stype :: P SType
-stype = Type <$> expr
-
-equalOp :: Operator String () Identity STerm
-equalOp = Ex.Infix (reservedOp "=" >> return SEq ) Ex.AssocNone
-
-table :: [[Operator String () Identity STerm]]
-table = [[equalOp]]
-
-expr :: P STerm
-expr = Ex.buildExpressionParser table sterm
-
-parseTerm :: P STerm
-parseTerm = expr
+stype = Type <$> sterm
 
 parse :: String -> STerm
-parse s = case runP expr s "" of
+parse s = case runP sterm s "" of
             Right t -> t
             Left e -> error $ show e
 

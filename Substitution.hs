@@ -14,9 +14,11 @@ varChanger bound local = go 0
       in  Lam (goArg d arg) (go (d + 1) t)
     go d (t :@: u) = go d t :@: go d u
     go d (Elim t bs) = Elim (go d t) (map (goBranch d) bs)
-    go d (Fix f arg ty t) = Fix f (goArg d arg) (goType (d + 1) ty) (go (d + 2) t)
+    go d (Fix f arg ty t) =
+      Fix f (goArg d arg) (goType (d + 1) ty) (go (d + 2) t)
     go d (Pi arg ty) = Pi (goArg d arg) (goType (d + 1) ty)
     go d (Ann t ty) = Ann (go d t) (goType d ty)
+    go _ t = t
 
     goType d (Type t) = Type $ go d t
 
@@ -32,7 +34,7 @@ open x = varChanger bnd (\_ n -> V (Free n))
     bnd d i
       | i < d = V (Bound i)
       | i == d = V (Free x)
-      | otherwise = error "open: bound fuera de rango"
+      | otherwise = error $ "open: bound fuera de rango: " ++ show i
 
 openType :: Int -> Type -> Type
 openType x = Type . open x . unType

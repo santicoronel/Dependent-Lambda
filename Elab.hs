@@ -10,14 +10,17 @@ import Data.List ( elemIndex, group )
 
 data ElabError = ElabError String
 
-data Context = Context {
+data ElabContext = ElabContext {
     local :: [Name],
     global :: [Name],
     datatypes :: [Name],
     cons :: [Constructor]
 }
 
-class (MonadError ElabError m, MonadState Context m) =>
+emptyElabContext :: ElabContext
+emptyElabContext = ElabContext [] [] [] []
+
+class (MonadError ElabError m, MonadState ElabContext m) =>
   MonadElab m
 
 -- TODO hacer una sola jijis
@@ -36,6 +39,7 @@ elab (Lit n)
   | otherwise = error "elab: negative integer"
 elab SZero = return zero
 elab SSuc = return (Lam (Arg "n" natTy) (suc (bound 0)))
+elab SNat = return (Data Nat)
 elab SRefl = return refl
 elab (SEq t u) = do
   t' <- elab t
@@ -47,7 +51,7 @@ elab (SV x) = do
     Nothing -> throwError (ElabError $ "var " ++ x ++ " not defined")
     Just v -> return v 
   where
-    variable (Context lc gc dt cs)
+    variable (ElabContext lc gc dt cs)
       | x `elem` lc = let Just i = elemIndex x lc in return (bound i)
       | x `elem` gc = return (V (Global x))
       | x `elem` dt = return (Data (DataT x))
@@ -61,7 +65,7 @@ elab (SLam arg t) = do
   put (ctx { local = argName arg : local ctx })
   t' <- elab t
   put ctx
-  return (Lam arg { argType = ty} t')
+  return (Lam arg { argType = ty } t')
 elab (SApp t u) = (:@:) <$> elab t <*> elab u
 elab (SElim t bs) = do
   t' <- elab t
@@ -104,7 +108,7 @@ elabType (Type ty) = Type <$> elab ty
 -- TODO pensar si quiero chequear mas cosas aca
 --
 -- podria chequear q sean constructores del mismo datatype
--- agregando nombre del dt al contexto de constructores
+-- agregando nombre del dt al ElabContexto de constructores
 elabBranches :: MonadElab m => [SElimBranch] -> m [ElimBranch]
 elabBranches bs = do
   when (duplicateName (map elimCon bs))

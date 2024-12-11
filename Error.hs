@@ -23,3 +23,4 @@ data TypeError =
   | EIncompleteBot
   | EUnifiable
   | ENeq Term Term
+  deriving Show

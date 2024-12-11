@@ -2,6 +2,7 @@ module Context where
 
 import Lang
 import UnionFind ( UnionFind, insert )
+import qualified UnionFind as UF
 
 data LocalBinder = LBinder {
   localVar :: Int,
@@ -27,6 +28,17 @@ data Context = TC {
   global :: [GlobalBinder],
   datadefs :: [DataDef],
   unif :: UnionFind Int
+}
+
+emptyContext :: Context
+emptyContext = TC {
+  varCount = 0,
+  names = [],
+  local = [],
+  localDefs = [],
+  global = [],
+  datadefs = [],
+  unif = UF.empty
 }
 
 freshVar :: Name -> Context -> (Int, Context)

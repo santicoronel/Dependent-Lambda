@@ -32,18 +32,16 @@ reduceNF (V v) = case v of
 reduceNF (Lam arg t) = doAndRestore (do
   i <- bindArg (argName arg) (argType arg)
   let t' = open i t
-  rt <- reduceNF t
+  rt <- reduceNF t'
   return (Lam arg (close i rt))
-  )
+  ) 
 reduceNF (t :@: u) = do
   t' <- reduceNF t
   u' <- reduceNF u
   case t' of
-    (V _) -> return (t' :@: u')
     (Lam arg t) -> do
       i <- bindLocal (argName arg) (argType arg) u'
       reduceNF (open i t)
-    (_ :@: _) -> return (t' :@: u')
     (Fix f arg ty s) -> do
       -- TODO aplicar con var fresca
       -- ahora puedo :) pero tengo q manejarlo en otro lado
@@ -55,7 +53,7 @@ reduceNF (t :@: u) = do
           -- TODO close??
           -- no deberia hacer falta je
         else return (t' :@: u')
-    _ -> error "type error en reduce"
+    _ -> return (t' :@: u')
 reduceNF (Elim t bs) = do
   t' <- reduceNF t
   case inspectCons t' of
@@ -96,7 +94,7 @@ reduceNFBranches = mapM reduceNFBranch
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])
-inspectCons = go []
+inspectCons t = error (show t) -- go []
   where
     go [] (Con Zero) = Just (Zero, [])
     go [n] (Con Suc) = Just (Suc, [n])

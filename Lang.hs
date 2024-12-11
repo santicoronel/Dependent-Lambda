@@ -12,7 +12,10 @@ data Var =
 
 
 -- incluyo sort?
-newtype Type' t = Type { unType :: t } deriving (Eq, Show)
+newtype Type' t = Type { unType :: t } deriving Eq
+
+instance Show t => Show (Type' t) where
+  show (Type t) = show t
 
 type Type = Type' Term
 type SType = Type' STerm
@@ -28,7 +31,10 @@ set i = Type $ Sort $ Set i
 data Arg' ty = Arg {
   argName :: Name,
   argType :: ty
-} deriving (Eq, Show)
+} deriving Eq
+
+instance Show ty => Show (Arg' ty) where
+  show (Arg n ty) = "(" ++ n ++ " : " ++ show ty ++")"
 
 type Arg = Arg' Type
 type SArg = Arg' SType
@@ -46,7 +52,12 @@ data DataType =
   Nat
   | Eq Term Term
   | DataT Name
-  deriving (Eq, Show)
+  deriving Eq
+
+instance Show DataType where
+  show Nat = "Nat"
+  show (Eq t u) = "(" ++ show t ++ " = " ++ show u ++ ")"
+  show (DataT dn) = dn
 
 -- TODO tipo debe estar reducido
 -- mejor: chequeo sintactico, no permitir cosa rara
@@ -99,6 +110,7 @@ data STerm =
   | SPi SArg SType
   | SSort SSort
   | SAnn STerm SType
+  deriving Show
 
 infixl 9 :@:
 
