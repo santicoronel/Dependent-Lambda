@@ -4,7 +4,7 @@ module Parse where
 
 import Lang hiding ( var )
 
-import Text.Parsec
+import Text.Parsec hiding ( runP )
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Token as Tok
 import qualified Text.Parsec.Expr as Ex
@@ -170,7 +170,10 @@ expr = Ex.buildExpressionParser table sterm
 parseTerm :: P STerm
 parseTerm = expr
 
-runpLam :: String -> STerm
-runpLam s = case runParser (whiteSpace *> expr <* eof) () "" s of
-              Right t -> t
-              Left e -> error $ show e
+parse :: String -> STerm
+parse s = case runP expr s "" of
+            Right t -> t
+            Left e -> error $ show e
+
+runP :: P a -> String -> String -> Either ParseError a
+runP p s filename = runParser (whiteSpace *> p <* eof) () filename s
