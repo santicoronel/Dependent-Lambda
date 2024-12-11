@@ -20,7 +20,7 @@ type SType = Type' STerm
 newtype Sort' = Set Int deriving (Eq, Show)
 
 type Sort = Sort'
-type SSort = Sort
+type SSort = Sort'
 
 set :: Int -> Type
 set i = Type $ Sort $ Set i
@@ -83,9 +83,13 @@ data ElimBranch' c t = ElimBranch {
 type ElimBranch = ElimBranch' ConHead Term
 type SElimBranch = ElimBranch' Name STerm
 
+
 data STerm =
   Lit Int
+  | SZero
+  | SSuc
   | SNat
+  | SRefl
   | SEq STerm STerm
   | SV Name
   | SLam SArg STerm
@@ -102,8 +106,6 @@ data Term =
   V Var
   | Lam Arg Term
   | Term :@: Term
-  -- para aplicacion parcial eta expandimos??
-  -- yo diria q no
   | Con ConHead
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
@@ -125,6 +127,12 @@ zero = Con Zero
 
 suc :: Term -> Term
 suc n = Con Suc :@: n 
+
+refl :: Term
+refl = Con Refl
+
+bound :: Int -> Term
+bound = V . Bound
 
 eqTy :: Term -> Term -> Type
 t `eqTy` u = Type (Data (Eq t u))
