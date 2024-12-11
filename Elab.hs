@@ -97,6 +97,7 @@ elab (SPi arg ty) = do
   ctx <- get
   put (ctx { local = argName arg' : local ctx })
   ty' <- elabType ty
+  put ctx
   return (Pi arg' ty')
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty

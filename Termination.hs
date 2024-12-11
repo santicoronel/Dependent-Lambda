@@ -1,6 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Termination ( terminationCheck ) where
+module Termination (
+  TError( TError),
+  TChecked( TE, TOK ),
+  terminationCheck
+)where
 
 import Lang
 import qualified Transitive as TR

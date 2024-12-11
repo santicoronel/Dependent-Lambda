@@ -9,6 +9,7 @@ import MonadTypeCheck
 import TypeCheck
 import Context
 import Error
+import Termination
 
 import Options.Applicative
     ( argument, fullDesc, idm, info, str, execParser )
@@ -35,9 +36,11 @@ main = execParser (info (argument str idm) fullDesc) >>= go
         Just st -> case runState (runExceptT (elab st)) emptyElabContext of
           (Left e, ctx) -> case e of
             ElabError e -> putStrLn e
-          (Right t, _) -> case runState (runExceptT (inferTerm t)) emptyContext of
-            (Left e, ctx) -> print e
-            (Right ty, _) -> print ty
+          (Right t, _) -> case terminationCheck t of
+            TE _ _ -> print "termination error"
+            TOK -> case runState (runExceptT (inferTerm t)) emptyContext of
+              (Left e, ctx) -> print e
+              (Right ty, _) -> print ty
 
 
 loadFile :: FilePath -> IO (Maybe STerm)

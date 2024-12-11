@@ -1,1 +1,1 @@
-(\(x : Nat).\(f : (_ : Nat) -> Nat). f x )
+fix f (x : Nat) : Nat . zero
