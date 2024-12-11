@@ -12,6 +12,8 @@ import Substitution
 import Control.Monad.Except
 import Control.Monad.State
 
+-- TODO no hacer chequeos de branches
+
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
   Bound x -> error "typecheck: bound"
@@ -33,21 +35,21 @@ infer (t :@: u) = do  tt <- infer t
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
--- todo factorizar esto dios
-infer t@(Fix f arg ty u) = doAndRestore (do
+infer t@(Fix f arg ty u) = do
   shouldBeType (argType arg)
-  --
+  ty' <- inferFixType
+  fi <- bindLocal f (Type $ Pi arg ty') t
   xi <- bindArg (argName arg) (argType arg)
-  let ty' = openType xi ty
-  --
-  shouldBeType ty'
-  rty <- reduceType ty'
-  let rty' = closeType xi rty
-  --
-  fi <- bindLocal f (Type $ Pi arg rty') u
-  check (open2 fi xi t) rty'
-  return (Type (Pi arg rty'))
-  )
+  check (open2 fi xi t) ty'
+  return (Type (Pi arg ty'))
+  
+  where
+    inferFixType = doAndRestore $ do
+      xi <- bindArg (argName arg) (argType arg)
+      let ty' = openType xi ty
+      shouldBeType ty'
+      return (closeType xi ty')
+
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (Type $ Sort tty)
@@ -108,7 +110,7 @@ inferElim' (Eq t u) bs = case bs of
   [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
     infer r)
-  [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
+  [ElimBranch Refl _ _] -> error "typecheck: illformed branch"
   _ -> throwError EManyCases
 inferElim' (DataT d) bs = do
   dd <- getDataDef d
@@ -209,9 +211,7 @@ casesNat bs = do
 zeroBranch :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, [ElimBranch])
 zeroBranch [] = throwError ECasesMissing
 zeroBranch (b:bs) = case elimCon b of
-  Zero -> do
-    unless (null $ elimConArgs b) (throwError (ENumberOfArgs Zero))
-    return (b, bs)
+  Zero -> return (b, bs)
   _ -> do
     (zb, bs') <- zeroBranch bs
     return (zb, b : bs')
@@ -219,9 +219,7 @@ zeroBranch (b:bs) = case elimCon b of
 sucBranch :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, [ElimBranch])
 sucBranch [] = throwError ECasesMissing
 sucBranch (b:bs) = case elimCon b of
-  Suc -> do
-    unless (length (elimConArgs b) == 1) (throwError (ENumberOfArgs Suc))
-    return (b, bs)
+  Suc -> return (b, bs)
   _ -> do
     (sb, bs') <- sucBranch bs
     return (sb, b : bs')
