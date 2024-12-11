@@ -1,4 +1,4 @@
-module TypeCheck where
+module TypeCheck ( inferTerm, check ) where
 
 import Lang
 import Error
@@ -12,7 +12,9 @@ import Substitution
 import Control.Monad.Except
 import Control.Monad.State
 
--- TODO no hacer chequeos de branches
+inferTerm :: MonadTypeCheck m => Term -> m Type
+inferTerm t = infer t >>= reduceType
+
 
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
@@ -22,7 +24,8 @@ infer (V v) = case v of
 infer (Lam arg t) = doAndRestore (do
   shouldBeType (argType arg)
   i <- bindArg (argName arg) (argType arg)
-  infer (open i t)
+  ty <- infer (open i t)
+  return (Type $ Pi arg (closeType i ty)) 
   )
 infer (t :@: u) = do  tt <- infer t
                       tt' <- reduceType tt
@@ -59,7 +62,7 @@ infer (Pi arg ty) = doAndRestore (do
   )
 infer (Sort (Set i)) = return (set (i + 1))
 infer (Ann t tt) = do
-  shouldBeType tt
+  shouldBeType tt 
   check t tt
   return tt
 
@@ -129,6 +132,8 @@ inferSort (Type t) = do
     Sort s -> return s
     _ -> throwError (ENotType t)
 
+-- TODO creo q no hace falta chequear shouldBeType
+-- lo hacemos antes de llamar
 check :: MonadTypeCheck m => Term -> Type -> m ()
 check (Elim t ts) ty = do
   shouldBeType ty
