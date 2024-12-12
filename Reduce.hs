@@ -72,7 +72,7 @@ reduceNF (Elim t bs) = do
 reduceNF t@(Fix f arg ty s) = doAndRestore (do
   (fi, xi) <- bindFun f ty t arg Nothing
   s' <- reduceNF (open2 fi xi s)
-  return (Fix f arg ty (close2 fi xi s))
+  return (Fix f arg ty (close2 fi xi s'))
   )
 reduceNF (Pi arg ty) = doAndRestore (do
   i <- bindArg (argName arg) (argType arg)
