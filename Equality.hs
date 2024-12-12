@@ -60,10 +60,6 @@ equal t u = do
 
     go (V (Bound _)) _ = error "bound in reduced"
     go _ (V (Bound _)) = error "bound in reduced"
-    
-    go (Elim _ _) _ = error "elim in reduced"
-    go _ (Elim _ _) = error "elim in reduced"
-    
 
     go t u = throwError (ENeq t u)
 
@@ -91,6 +87,8 @@ bequalV x y (ElimBranch c a1 r1 : bs) b2 =
             r2' = openMany is2 r2
         equal r1' r2')
       >> bequalV x y bs b2'
+bequalV x y [] [] = return ()
+bequalV x y bs b2 = error $ "Equality: error en branches " ++ show bs ++ " = " ++ show b2
 
 bequal :: MonadTypeCheck m => [ElimBranch] -> [ElimBranch] -> m ()
 bequal (b1 : bs1) bs2 =

@@ -19,15 +19,15 @@ refl : (fix f (x : Nat) : Nat . elim x {
 
 /*
 // suma
-fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat). elim x {
+refl : (fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat). elim x {
     zero := y ;
-    suc n := f n y
-}
+    suc n := suc (f n y)
+}) 0 = \(x : Nat) . x
 */
 
-/*
+
 // eq
-fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat) . elim x {
+refl : (fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat) . elim x {
         zero := elim y {
             zero := 0 ;
             suc _ := 1
@@ -37,7 +37,7 @@ fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat) . elim x {
             suc m := f n m
         }
     }
-*/
+) 1 1 = 0 // zero = \(x : Nat) . elim x { zero := 0 ; suc n := 1 }
 
 /*
 // ni idea que hace esto
@@ -64,4 +64,6 @@ fix f (x : Nat) : (_ : Nat) -> Nat .
     }
 */
 
+/*
 refl : (fix f (x : Nat) : Nat . zero) zero = zero
+*/

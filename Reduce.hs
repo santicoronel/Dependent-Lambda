@@ -70,7 +70,8 @@ reduceNF (Elim t bs) = do
     Nothing -> Elim t' <$> reduceNFBranches bs
 reduceNF t@(Fix f arg ty s) = doAndRestore (do
   (fi, xi) <- bindFun f ty t arg Nothing
-  reduceNF (open2 fi xi s)
+  s' <- reduceNF (open2 fi xi s)
+  return (Fix f arg ty (close2 fi xi s))
   )
 reduceNF (Pi arg ty) = doAndRestore (do
   i <- bindArg (argName arg) (argType arg)
@@ -98,7 +99,7 @@ reduceNFBranches = mapM reduceNFBranch
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])
-inspectCons t = error (show t) -- go []
+inspectCons = go []
   where
     go [] (Con Zero) = Just (Zero, [])
     go [n] (Con Suc) = Just (Suc, [n])
