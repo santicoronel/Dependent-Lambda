@@ -27,7 +27,7 @@ varChanger bound local = go 0
 
     goBranch d (ElimBranch c as t) =
       let ar = length as
-      in  ElimBranch c as (go (d + 1) t)
+      in  ElimBranch c as (go (d + ar) t)
 
 open :: Int -> Term -> Term
 open x = varChanger bnd (\_ n -> V (Free n))
