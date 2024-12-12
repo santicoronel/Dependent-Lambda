@@ -1,8 +1,7 @@
-/*
-\(x : Nat).\(y : Nat).\(r : x = y). elim r {
+
+let eqsuc := \(x : Nat).\(y : Nat).\(r : x = y). elim r {
     refl := refl
 } : suc x = suc y
-*/
 
 /*
 \(A : Set).\(x : A).\(y : A).\(f : (_: A) -> A).\(r : x = y). elim r {

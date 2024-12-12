@@ -82,6 +82,16 @@ getGlobalDef x = do
     Just t -> return t
     Nothing -> throwError $ EGlobal x 
 
+bindGlobal :: MonadTypeCheck m => Decl -> Type -> m ()
+-- bindGlobal (Decl n ty t) = do
+bindGlobal (Decl n t) ty = do
+  ctx <- get
+  when (n `elem` map globalName (global ctx))
+    (throwError $ EGlobalEx n)
+  -- let gb = GBinder n ty t
+  let gb = GBinder n ty t
+  put (ctx { global = gb : global ctx })
+
 bindArg :: MonadState Context m => Name -> Type -> m Int
 bindArg x ty = do
   i <- newVar x

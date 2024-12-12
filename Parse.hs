@@ -181,9 +181,22 @@ sterm = do
   t <- expr
   ann t <|> equalOp t <|> return t
 
-
 stype :: P SType
 stype = Type <$> sterm
+
+decl :: P SDecl
+decl = do
+  reserved "let"
+  n <- name
+  --reservedOp ":"
+  --ty <- stype
+  reservedOp ":="
+  t <- sterm
+  -- return (Decl n ty t)
+  return (Decl n t)
+
+program :: P SProgram
+program = many decl
 
 parse :: String -> STerm
 parse s = case runP sterm s "" of

@@ -1,8 +1,19 @@
 module Lang where
 
---import SLang
-
 type Name = String
+
+type SProgram = [SDecl]
+type Program = [Decl]
+
+data Decl' ty t = Decl {
+  declName :: Name,
+  --declType :: ty,
+  declDef :: t
+} deriving Show
+
+type Decl = Decl' Type Term
+type SDecl = Decl' SType STerm
+
 
 -- TODO type allias
 data Var =

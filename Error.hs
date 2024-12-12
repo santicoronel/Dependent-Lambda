@@ -23,4 +23,5 @@ data TypeError =
   | EIncompleteBot
   | EUnifiable
   | ENeq Term Term
+  | EGlobalEx Name
   deriving Show

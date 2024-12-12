@@ -3,7 +3,8 @@
 module Termination (
   TError( TError),
   TChecked( TE, TOK ),
-  terminationCheck
+  terminationCheck,
+  terminationCheckType
 )where
 
 import Lang
@@ -21,10 +22,21 @@ newtype TError = TError Term deriving Show
 
 data TChecked = TE TError [Name] | TOK
 
+instance Semigroup TChecked where
+  TOK <> TOK = TOK
+  TE te ns <> _ = TE te ns
+  _ <> TE te ns  = TE te ns
+
+instance Monoid TChecked where
+  mempty = TOK
+
 terminationCheck :: Term -> TChecked
 terminationCheck t = case runState (runExceptT (check t)) emptyContext of
   (Left e, ctx) -> TE e (ns ctx)
   (Right (), _) -> TOK
+
+terminationCheckType :: Type -> TChecked
+terminationCheckType (Type t) = terminationCheck t
 
 type VarId = Int
 
