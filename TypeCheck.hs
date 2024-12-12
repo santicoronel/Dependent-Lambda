@@ -51,7 +51,7 @@ infer t@(Fix f arg ty u) = do
 
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
-  i <- bindArg (argName arg) (Type $ Sort tty)
+  i <- bindArg (argName arg) (argType arg)
   sty <- inferSort (openType i ty)
   let sty' = closeSort i sty
   return (pisort tty arg sty')
