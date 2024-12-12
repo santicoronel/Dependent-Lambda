@@ -11,7 +11,6 @@ import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
-import GHC.IO.Unsafe(unsafePerformIO)
 
 inferTerm :: MonadTypeCheck m => Term -> m Type
 inferTerm t = infer t >>= reduceType
@@ -44,9 +43,8 @@ infer t@(Fix f arg ty u) = do
   ty' <- inferFixType
   fi <- bindLocal f (Type $ Pi arg ty') t
   xi <- bindArg (argName arg) (argType arg)
-  check (open2 fi xi t) ty'
+  check (open2 fi xi u) ty'
   return (Type (Pi arg ty'))
-  
   where
     inferFixType = doAndRestore $ do
       xi <- bindArg (argName arg) (argType arg)
@@ -187,7 +185,7 @@ checkElim' x Nat bs rty = do
     checkElimSuc x t n = doAndRestore (do
       i <- bindArg n natTy
       bindPattern x (suc (var i))
-      check t (openType i rty)
+      check (open i t) (openType i rty)
       )
 -- Eq
 checkElim' x (Eq t u) bs rty = case bs of
