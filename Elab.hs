@@ -115,8 +115,13 @@ elabType (Type ty) = Type <$> elab ty
 elabBranches :: MonadElab m => [SElimBranch] -> m [ElimBranch]
 elabBranches bs = do
   when (duplicateName (map elimCon bs))
-    (throwError (ElabError "yadayada"))
+    (throwError (ElabError "branches redundantes"))
+  mapM_ checkArgNames bs
   mapM elabBranch bs
+
+checkArgNames :: MonadElab m => SElimBranch -> m ()
+checkArgNames (ElimBranch _ as _ ) =
+  when (duplicateName as) (throwError (ElabError "nombre duplicado en case"))
 
 elabBranch :: MonadElab m => SElimBranch -> m ElimBranch
 elabBranch (ElimBranch "zero" as t) = case as of

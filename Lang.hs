@@ -84,7 +84,6 @@ data Constructor = Constructor {
 instance Eq Constructor where
   c == d = conName c == conName d
 
--- TODO chequear q no haya argumentos repetidos
 data ElimBranch' c t = ElimBranch {
   elimCon :: c,
   elimConArgs :: [Name],
