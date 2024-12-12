@@ -26,7 +26,7 @@ reduceNF (V v) = case v of
     case dx of
       Nothing -> return (V v)
       Just dx -> return dx
-  (Global x) -> getGlobalDef x
+  Global x -> getGlobalDef x
 -- TODO hace falta restorear??
 -- creo q si por el uf
 reduceNF (Lam arg t) = doAndRestore (do
@@ -76,7 +76,7 @@ reduceNF (Pi arg ty) = doAndRestore (do
   i <- bindArg (argName arg) (argType arg)
   ty' <- reduceNFType (openType i ty)
   argty <- reduceNFType (openType i (argType arg))
-  return (Pi arg ty')
+  return (Pi arg { argType = closeType i argty } (closeType i ty'))
   )
 reduceNF (Ann t ty) = reduceNF t
 reduceNF t = return t
