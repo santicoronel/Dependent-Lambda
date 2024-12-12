@@ -18,6 +18,7 @@ varChanger bound local = go 0
       Fix f (goArg d arg) (goType (d + 1) ty) (go (d + 2) t)
     go d (Pi arg ty) = Pi (goArg d arg) (goType (d + 1) ty)
     go d (Ann t ty) = Ann (go d t) (goType d ty)
+    go d (Data (Eq t u)) = Data (Eq (go d t) (go d u))
     go _ t = t
 
     goType d (Type t) = Type $ go d t

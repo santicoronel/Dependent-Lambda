@@ -9,7 +9,6 @@ import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Token as Tok
 import Control.Monad.Identity (Identity)
 import Control.Exception.Extra (tryBool)
-import GHC.IO (unsafePerformIO)
 
 type P = Parsec String ()
 

@@ -18,7 +18,7 @@ inferTerm t = infer t >>= reduceType
 
 infer :: MonadTypeCheck m => Term -> m Type
 infer (V v) = case v of
-  Bound x -> error "typecheck: bound"
+  Bound x -> error $ "typecheck: bound " ++ show x
   Free x -> getLocalType x
   Global x -> getGlobalType x
 infer (Lam arg t) = doAndRestore (do
