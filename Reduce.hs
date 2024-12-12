@@ -51,8 +51,6 @@ reduceNF (t :@: u) = do
         then do
           (fi, xi) <- bindFun f ty t arg (Just u')
           reduceNF (open2 fi xi s)
-          -- TODO close??
-          -- no deberia hacer falta je
         else return (t' :@: u')
     _ -> return (t' :@: u')
 reduceNF (Data (Eq t u)) = do

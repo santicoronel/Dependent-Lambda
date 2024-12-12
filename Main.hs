@@ -70,7 +70,5 @@ loadFile f = do
       Left e -> print e >> return Nothing
       Right a -> return (Just a)
 
-
--- TODO meter error de IO aca
 parseIO :: String -> P a -> String -> Either ParseError a
 parseIO filename p x = runP p x filename

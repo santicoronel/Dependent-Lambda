@@ -132,14 +132,9 @@ inferSort (Type t) = do
 -- TODO creo q no hace falta chequear shouldBeType
 -- lo hacemos antes de llamar
 check :: MonadTypeCheck m => Term -> Type -> m ()
-check (Elim t ts) ty = do
-  shouldBeType ty
-  checkElim t ts ty
-check (Con ch) ty = do
-  shouldBeType ty
-  checkCon ch ty
+check (Elim t ts) ty = checkElim t ts ty
+check (Con ch) ty = checkCon ch ty
 check t ty = do
-  shouldBeType ty
   tt <- infer t
   ty `tequal` tt
 
