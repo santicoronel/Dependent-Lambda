@@ -139,12 +139,14 @@ elim = do
 
 branch :: P SElimBranch
 branch = do
-  c <- name
+  c <- name <|> choice (map reservedName cons)
   as <- many name
   reservedOp ":=" <|> reservedOp "≔"
   t <- sterm
   return (ElimBranch c as t)
-
+  where
+    reservedName n = reserved n >> return n 
+    cons = ["zero", "suc", "refl"]
 
 app :: P STerm
 app = do
@@ -153,8 +155,7 @@ app = do
   return (foldl SApp f args)
 
 expr :: P STerm
-expr = do
-  app <|> lam <|> fix
+expr = app <|> lam <|> fix <|> elim
 
 
 equalOp :: STerm -> P STerm

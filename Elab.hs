@@ -31,7 +31,9 @@ lookupWith x (b : bs) gn gt
   | otherwise = lookupWith x bs gn gt
 
 duplicateName :: Eq a => [a] -> Bool
-duplicateName xs = not $ all null $ group xs
+duplicateName xs = not $ all unary $ group xs
+  where unary [_] = True
+        unary _ = False
 
 elab :: MonadElab m => STerm -> m Term
 elab (Lit n)
