@@ -37,7 +37,7 @@ main = execParser (info (argument str idm) fullDesc) >>= go
           (Left e, ctx) -> case e of
             ElabError e -> putStrLn e
           (Right t, _) -> case terminationCheck t of
-            TE _ _ -> print "termination error"
+            TE e _ -> putStrLn $ "termination error: " ++ show e
             TOK -> case runState (runExceptT (inferTerm t)) emptyContext of
               (Left e, ctx) -> print e
               (Right ty, _) -> print ty

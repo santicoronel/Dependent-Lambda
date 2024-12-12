@@ -12,6 +12,8 @@ import Control.Exception.Extra (tryBool)
 
 type P = Parsec String ()
 
+-- NICETOHAVE parsear, por ej, un punto pegado a una barra
+
 langDef :: LanguageDef u
 langDef = emptyDef {
   commentStart = "/*",
@@ -86,10 +88,15 @@ spi = do
   return (SPi a ty)
 
 sort :: P STerm
-sort = do
-  reserved "Set"
-  n <- num
-  return (SSort (Set n))
+sort = try set <|> set0 
+  where
+    set = do
+      reserved "Set"
+      n <- num
+      return (SSort (Set n))
+    set0 = do
+      reserved "Set"
+      return (SSort (Set 0))
 
 arg :: P SArg
 arg = parens arg' <|> arg'
