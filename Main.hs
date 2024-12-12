@@ -10,6 +10,7 @@ import TypeCheck
 import Context
 import Error
 import Termination
+import Reduce ( reduce, reduceType )
 
 import Options.Applicative
     ( argument, fullDesc, idm, info, str, execParser )
@@ -38,9 +39,23 @@ main = execParser (info (argument str idm) fullDesc) >>= go
             ElabError e -> putStrLn e
           (Right t, _) -> case terminationCheck t of
             TE e _ -> putStrLn $ "termination error: " ++ show e
-            TOK -> case runState (runExceptT (inferTerm t)) emptyContext of
-              (Left e, ctx) -> print e
-              (Right ty, _) -> print ty
+            TOK -> runTerm t
+
+
+runTerm :: Term -> IO ()
+runTerm t =
+  let rt = do
+      ty <- infer t
+      ty' <- reduceType ty
+      t' <- reduce t
+      return (t', ty')
+  in case runState (runExceptT rt) emptyContext of
+      (Left e, ctx) -> print e -- TODO aca hay variables free
+      (Right (t', ty), _) -> do
+        putStrLn "Termino:"
+        print t'
+        putStrLn "Tipo:"
+        print ty
 
 
 loadFile :: FilePath -> IO (Maybe STerm)

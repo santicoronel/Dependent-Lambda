@@ -8,15 +8,16 @@ module Reduce (
 import Lang
 import MonadTypeCheck
 import Substitution
+import Context ( freshVar )
 
 import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
 import Data.Foldable (foldrM)
-import Context ( freshVar )
 
 -- TODO eta reducccion
 -- TODO reduccion parcial
 -- TODO no expandir vars recursivas
+-- TODO usar un stack para hacerlo mas eficiente
 
 reduceNF :: MonadTypeCheck m => Term -> m Term
 reduceNF (V v) = case v of
@@ -95,7 +96,7 @@ reduceNFBranches = mapM reduceNFBranch
       is <- zipWithM bindArg (elimConArgs b) atys
       let res = openMany is (elimRes b)
       res' <- reduceNF res
-      return b { elimRes = openMany is res' }
+      return b { elimRes = closeMany is res' }
       )
 
 inspectCons :: Term -> Maybe (ConHead, [Term])

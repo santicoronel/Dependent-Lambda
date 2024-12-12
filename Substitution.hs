@@ -29,13 +29,16 @@ varChanger bound local = go 0
       let ar = length as
       in  ElimBranch c as (go (d + ar) t)
 
-open :: Int -> Term -> Term
-open x = varChanger bnd (\_ n -> V (Free n))
+openi :: Int -> Int -> Term -> Term
+openi i x = varChanger bnd (\_ n -> V (Free n))
   where
-    bnd d i
-      | i < d = V (Bound i)
-      | i == d = V (Free x)
-      | otherwise = error $ "open: bound fuera de rango: " ++ show i
+    bnd d j
+      | j < d + i = V (Bound j)
+      | j == d + i = V (Free x)
+      | otherwise = error $ "open: bound fuera de rango: " ++ show j  
+
+open :: Int -> Term -> Term
+open = openi 0
 
 openType :: Int -> Type -> Type
 openType x = Type . open x . unType
@@ -44,26 +47,25 @@ openSort :: Int -> Sort -> Sort
 openSort i s = s
 
 open2 :: Int -> Int -> Term -> Term
-open2 f x = varChanger bnd (\_ n -> V (Free n))
-  where
-    bnd d i
-      | i < d = V (Bound i)
-      | i == d = V (Free x)
-      | i == d + 1 = V (Free f)
-      | otherwise = error "open2: bound fuera de rango"
+open2 f x = openMany [f, x]
 
 open2Type :: Int -> Int -> Type -> Type
 open2Type f x = Type . open2 f x . unType
 
 openMany :: [Int] -> Term -> Term
-openMany is t = foldr open t is
+openMany is t =
+  let len = length is
+  in  foldl (flip $ uncurry openi) t (zip [len - j | j <- [1..len]] is)
 
-close :: Int -> Term -> Term
-close x = varChanger (\_ i -> V (Bound i)) lcl
+closei :: Int -> Int -> Term -> Term
+closei i x = varChanger (\_ j -> V (Bound j)) lcl
   where
     lcl d n
-      | n == x = V (Bound d)
+      | n == x = V (Bound (d + i))
       | otherwise = V (Free n)
+
+close :: Int -> Term -> Term
+close = closei 0
 
 closeType :: Int -> Type -> Type
 closeType x = Type . close x . unType
@@ -72,15 +74,15 @@ closeSort :: Int -> Sort -> Sort
 closeSort i s = s
 
 close2 :: Int -> Int -> Term -> Term
-close2 f x = varChanger (\_ i -> V (Bound i)) lcl
-  where
-    lcl d n
-      | n == x = V (Bound d)
-      | n == f = V (Bound (d + 1))
-      | otherwise = V (Free n)
+close2 f x = closeMany [f, x]
 
 close2Type :: Int -> Int -> Type -> Type
 close2Type f x = Type . close2 f x . unType
+
+closeMany :: [Int] -> Term -> Term
+closeMany is t =
+  let len = length is
+  in  foldl (flip $ uncurry closei) t (zip [len - j | j <- [1..len]] is)
 
 subst :: Term -> Term -> Term
 subst u = varChanger bnd (\_ n -> V (Free n))

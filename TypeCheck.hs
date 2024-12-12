@@ -1,4 +1,4 @@
-module TypeCheck ( inferTerm, check ) where
+module TypeCheck ( infer, check ) where
 
 import Lang
 import Error
@@ -11,9 +11,6 @@ import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
-
-inferTerm :: MonadTypeCheck m => Term -> m Type
-inferTerm t = infer t >>= reduceType
 
 
 infer :: MonadTypeCheck m => Term -> m Type
