@@ -11,6 +11,7 @@ import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
+import GHC.IO.Unsafe(unsafePerformIO)
 
 inferTerm :: MonadTypeCheck m => Term -> m Type
 inferTerm t = infer t >>= reduceType
@@ -25,7 +26,7 @@ infer (Lam arg t) = doAndRestore (do
   shouldBeType (argType arg)
   i <- bindArg (argName arg) (argType arg)
   ty <- infer (open i t)
-  return (Type $ Pi arg (closeType i ty)) 
+  return (Type $ Pi arg (closeType i ty))
   )
 infer (t :@: u) = do  tt <- infer t
                       tt' <- reduceType tt
@@ -109,6 +110,7 @@ inferElim' Nat bs = doAndRestore (do
   return ty
   )
 inferElim' (Eq t u) bs = case bs of
+  -- aca deberia fallar primero si son unificables (supongo?)
   [] -> throwError EIncompleteBot
   [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
@@ -193,8 +195,7 @@ checkElim' x (Eq t u) bs rty = case bs of
   [ElimBranch Refl [] r] -> doAndRestore (do
     unifyTerms t u
     bindPattern x (Con Refl)
-    ty <- infer r
-    ty `tequal` rty)
+    check r rty)
   [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
   _ -> throwError EManyCases
 -- DataT

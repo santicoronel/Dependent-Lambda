@@ -54,6 +54,10 @@ reduceNF (t :@: u) = do
           -- no deberia hacer falta je
         else return (t' :@: u')
     _ -> return (t' :@: u')
+reduceNF (Data (Eq t u)) = do
+  t' <- reduceNF t
+  u' <- reduceNF u
+  return (Data (Eq t' u'))
 reduceNF (Elim t bs) = do
   t' <- reduceNF t
   case inspectCons t' of
