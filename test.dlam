@@ -1,1 +1,67 @@
-fix f (x : Nat) : Nat . zero
+/*
+\(x : Nat).\(y : Nat).\(r : x = y). elim r {
+    refl := refl
+} : suc x = suc y
+*/
+
+/*
+\(A : Set).\(x : A).\(y : A).\(f : (_: A) -> A).\(r : x = y). elim r {
+    refl := refl
+} : f x = f y
+*/
+
+/*
+refl : (fix f (x : Nat) : Nat . elim x {
+    zero := zero ;
+    suc n := f n
+}) zero = zero
+*/
+
+/*
+// suma
+fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat). elim x {
+    zero := y ;
+    suc n := f n y
+}
+*/
+
+/*
+// eq
+fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat) . elim x {
+        zero := elim y {
+            zero := 0 ;
+            suc _ := 1
+        };
+        suc n := elim y {
+            zero := 1 ;
+            suc m := f n m
+        }
+    }
+*/
+
+/*
+// ni idea que hace esto
+// mejor ejemplo de recursion doble?
+fix f (x : Nat) : (_ : Nat) -> Nat .
+    fix g (y : Nat) : Nat . elim x {
+        zero := y ;
+        suc n := elim y {
+            zero := f n n ;
+            suc m := g m
+        }
+    }
+*/
+
+/*
+// ackermann
+fix f (x : Nat) : (_ : Nat) -> Nat .
+    fix g (y : Nat) : Nat . elim x {
+        zero := suc y ;
+        suc m := elim y {
+            zero := f m 1 ;
+            suc n := f m (g n)
+        }
+    }
+*/
+
+refl : (fix f (x : Nat) : Nat . zero) zero = zero
