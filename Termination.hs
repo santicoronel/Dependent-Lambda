@@ -17,7 +17,7 @@ import Substitution
 -- NICETOHAVE permitir recursion mutua (foetus)
 
 -- TODO mejor error
-newtype TError = TError Term
+newtype TError = TError Term deriving Show
 
 data TChecked = TE TError [Name] | TOK
 
@@ -43,7 +43,7 @@ addVar :: MonadState TContext m => Name -> m VarId
 addVar x = do
   ctx <- get
   let ix = vc ctx
-  put ctx { ns = x : ns ctx }
+  put ctx { ns = x : ns ctx, vc = vc ctx + 1 }
   return ix
 
 addRel :: MonadState TContext m => VarId -> VarId -> m ()
@@ -74,7 +74,7 @@ addFixOp r x = do
 type CheckedTerm = ExceptT TError (State TContext) ()
 
 check :: Term -> CheckedTerm
-check (V (Bound _)) = error "Termination check: bound"
+check (V (Bound i)) = error $ "Termination check: bound " ++ show i 
 check (V (Free f) :@: u) = do
   rf <- recVar f
   case rf of
@@ -95,7 +95,7 @@ check (Elim (V (Free x)) bs) = mapM_ (checkBranchWith x) bs
 check (Elim t bs) = mapM_ checkBranch bs
 check (Fix f arg _ t) = doAndRestore (do
   (fi, xi) <- addFixOp f (argName arg)
-  check (open2 fi xi t) 
+  check (open2 fi xi t)
   )
 check (Pi arg ty) = do
   doAndRestore (checkType (argType arg))
