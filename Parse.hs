@@ -100,10 +100,10 @@ sort = try set <|> set0
 
 arg :: P SArg
 arg = parens $ do
-  x <- name
+  xs <- many1 name
   reservedOp ":"
   ty <- stype
-  return (Arg x ty)
+  return (Arg xs ty)
 
 atom :: P STerm
 atom =

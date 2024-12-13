@@ -24,7 +24,7 @@ data GlobalBinder = GBinder {
   globalName :: Name,
   globalType :: Type,
   globalDef :: Term
-}
+} deriving Show
 
 data Context = TC {
   varCount :: Int,

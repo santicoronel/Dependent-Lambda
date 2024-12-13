@@ -44,7 +44,7 @@ elabDecl (SDecl n args ty t) = do
   rt <- elab t'
   put ctx { global = n : global ctx }
   return (Decl n rt)
- 
+
 elab :: MonadElab m => STerm -> m Term
 elab (Lit n)
   | n >= 0 = return (iterate suc zero !! n)
@@ -71,46 +71,54 @@ elab (SV x) = do
         let Just c = lookupWith x cs conName id
         in  return (Con (DataCon c))
       | otherwise = Nothing
-elab (SLam arg t) = do
-  ty <- elabType (argType arg)
-  ctx <- get
-  put (ctx { local = argName arg : local ctx })
-  t' <- elab t
-  put ctx
-  return (Lam arg { argType = ty } t')
+elab (SLam arg t) = go arg t
+  where
+    go (Arg [] _) t = elab t
+    go (Arg (x:xs) ty) t = do
+      ctx <- get
+      put ctx { local = x : local ctx}
+      t' <- go (Arg xs ty) t
+      put ctx
+      ty' <- elabType ty
+      return (Lam (Arg x ty') t')
+
 elab (SApp t u) = (:@:) <$> elab t <*> elab u
 elab (SElim t bs) = do
   t' <- elab t
   bs' <- elabBranches bs
   return (Elim t' bs')
 elab (SFix f arg ty t) = do
-  argty <- elabType (argType arg)
-  let arg' = arg { argType = argty }
-  ty' <- elabFixType arg' ty
-  t' <- elabFix f arg'
-  return (Fix f arg' ty' t')
+  case argName arg of
+    [] -> error "elab: sin argumento"
+    (a:as) -> do
+      ty' <- elabFixType a as (argType arg) ty
+      t' <- elabFix f a as (argType arg)
+      argty <- elabType (argType arg)
+      return (Fix f (Arg a argty) ty' t')
 
   where
-    elabFixType arg ty = do
+    elabFixType a as aty ty = do
       ctx <- get
-      put (ctx { local = argName arg : local ctx })
-      ty' <- elabType ty
+      put (ctx { local = a : local ctx })
+      ty' <- elab (SPi (Arg as aty) ty)
       put ctx
-      return ty'
-    elabFix f arg = do
+      return (Type ty')
+    elabFix f a as aty = do
       ctx <- get
-      put (ctx { local = argName arg : f : local ctx })
-      t' <- elab t
+      put (ctx { local = a : f : local ctx })
+      t' <- elab (SLam (Arg as aty) t)
       put ctx
       return t'
-elab (SPi arg ty) = do
-  argty <- elabType (argType arg)
-  let arg' = arg { argType = argty }
-  ctx <- get
-  put (ctx { local = argName arg' : local ctx })
-  ty' <- elabType ty
-  put ctx
-  return (Pi arg' ty')
+elab (SPi arg ty) = go arg ty
+  where
+    go (Arg [] _) ty = unType <$> elabType ty
+    go (Arg (x:xs) aty) ty = do
+      ctx <- get
+      put ctx { local = x : local ctx}
+      ty' <- go (Arg xs aty) ty
+      put ctx
+      aty' <- elabType aty
+      return (Pi (Arg x aty') (Type ty'))
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty
 

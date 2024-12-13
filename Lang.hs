@@ -17,7 +17,7 @@ data SDecl = SDecl {
   sdeclDef :: STerm
 } deriving Show
 
--- TODO type allias
+-- TODO type alias
 data Var =
   Bound Int
   | Free Int
@@ -41,17 +41,16 @@ type SSort = Sort'
 set :: Int -> Type
 set i = Type $ Sort $ Set i
 
-data Arg' ty = Arg {
-  argName :: Name,
+data Arg' n ty = Arg {
+  argName :: n,
   argType :: ty
 } deriving Eq
 
-instance Show ty => Show (Arg' ty) where
-  show (Arg n ty) = "(" ++ n ++ " : " ++ show ty ++")"
+instance (Show n, Show ty) => Show (Arg' n ty) where
+  show (Arg n ty) = "(" ++ show n ++ " : " ++ show ty ++")"
 
-type Arg = Arg' Type
-type SArg = Arg' SType
-
+type Arg = Arg' Name Type
+type SArg = Arg' [Name] SType
 
 data ConHead = 
   Zero
