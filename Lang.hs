@@ -5,15 +5,17 @@ type Name = String
 type SProgram = [SDecl]
 type Program = [Decl]
 
-data Decl' ty t = Decl {
+data Decl = Decl {
   declName :: Name,
-  --declType :: ty,
-  declDef :: t
+  declDef :: Term
 } deriving Show
 
-type Decl = Decl' Type Term
-type SDecl = Decl' SType STerm
-
+data SDecl = SDecl {
+  sdeclName :: Name,
+  sdeclArgs :: [SArg],
+  sdeclType :: SType,
+  sdeclDef :: STerm
+} deriving Show
 
 -- TODO type allias
 data Var =

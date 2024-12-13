@@ -36,16 +36,14 @@ duplicateName xs = not $ all unary $ group xs
         unary _ = False
 
 elabDecl :: MonadElab m => SDecl -> m Decl
--- elabDecl (Decl n ty t) = do
-elabDecl (Decl n t) = do
+elabDecl (SDecl n args ty t) = do
   ctx <- get
   when (n `elem` global ctx) 
     (throwError $ ElabError $ "variable global " ++ n ++ " ya existe")
-  -- ty' <- elabType ty
-  t' <- elab t
+  let t' = foldr  SLam (SAnn t ty) args
+  rt <- elab t'
   put ctx { global = n : global ctx }
-  -- return (Decl n ty' t')
-  return (Decl n t')
+  return (Decl n rt)
  
 elab :: MonadElab m => STerm -> m Term
 elab (Lit n)

@@ -99,13 +99,11 @@ sort = try set <|> set0
       return (SSort (Set 0))
 
 arg :: P SArg
-arg = parens arg' <|> arg'
-  where
-    arg' = do
-      x <- name
-      reservedOp ":"
-      ty <- stype
-      return (Arg x ty)
+arg = parens $ do
+  x <- name
+  reservedOp ":"
+  ty <- stype
+  return (Arg x ty)
 
 atom :: P STerm
 atom =
@@ -129,7 +127,7 @@ fix :: P STerm
 fix = do
   reserved "fix"
   f <- name
-  a <- parens arg
+  a <- arg
   reservedOp ":"
   ty <- stype
   reservedOp "."
@@ -188,12 +186,12 @@ decl :: P SDecl
 decl = do
   reserved "let"
   n <- name
-  --reservedOp ":"
-  --ty <- stype
+  args <- many arg
+  reservedOp ":"
+  ty <- stype
   reservedOp ":="
   t <- sterm
-  -- return (Decl n ty t)
-  return (Decl n t)
+  return (SDecl n args ty t)
 
 program :: P SProgram
 program = many decl

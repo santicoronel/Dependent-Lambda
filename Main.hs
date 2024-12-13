@@ -58,7 +58,7 @@ runProgram p = do
   when (and res) (putStrLn "Todo OK")
   where
     tc d = do
-      ty <- typecheckDecl d
+      ty <- infer (declDef d)
       t <- reduce (declDef d)
       bindGlobal d ty
       return (t, ty)
