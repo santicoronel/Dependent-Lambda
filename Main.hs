@@ -4,7 +4,7 @@ module Main where
 
 import Lang
 import Parse
-import Elab
+import Elab hiding ( global )
 import MonadTypeCheck
 import TypeCheck
 import Context
@@ -24,7 +24,7 @@ import Control.Monad.State
 
 instance MonadElab (ExceptT ElabError (State ElabContext))
 
-instance MonadTypeCheck (ExceptT TypeError (State Context))
+instance MonadTypeCheck (ExceptT TypeError (StateT Context IO))
 
 main :: IO ()
 main = execParser (info (argument str idm) fullDesc) >>= go
@@ -53,23 +53,25 @@ runTerminationCheck = foldMap tcheckDecl
       terminationCheck (declDef d)  
 
 runProgram :: Program -> IO ()
-runProgram p = do 
-  res <- mapM runDecl p
-  when (and res) (putStrLn "Todo OK")
+runProgram p = do
+  r <- runStateT (runExceptT (mapM_ runDecl p)) emptyContext
+  case r of
+    (Left e, ctx) -> print e -- TODO frees
+    (Right (), _) -> putStrLn "Todo OK"
   where
-    tc d = do
+    runDecl :: Decl -> ExceptT TypeError (StateT Context IO) () 
+    runDecl d = do
       ty <- infer (declDef d)
-      t <- reduce (declDef d)
       bindGlobal d ty
-      return (t, ty)
-    runDecl d = case runState (runExceptT (tc d)) emptyContext of
-      (Left e, ctx) -> print e >> return False -- TODO frees
-      (Right (t, ty), _) -> when (declName d == "main") (do
-        putStrLn "main :="
-        print t
-        putStrLn ":"
-        print ty) >> return True
+      when (declName d == "main") $ do
+        t <- reduce (declDef d)
+        liftIO $ do
+          putStrLn "main := "
+          print t
+          putStrLn ":"
+          print ty
 
+{-
 runTerm :: Term -> IO ()
 runTerm t =
   let rt = do
@@ -84,7 +86,7 @@ runTerm t =
         print t'
         putStrLn "Tipo:"
         print ty
-
+-}
 
 loadFile :: FilePath -> IO (Maybe SProgram)
 loadFile f = do
