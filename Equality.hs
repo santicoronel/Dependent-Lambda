@@ -11,57 +11,57 @@ import Control.Monad ( zipWithM_ )
 import Context (freshVar)
 import Substitution
 
--- NICETOHAVE usar reduceHead
+
 equal :: MonadTypeCheck m => Term -> Term -> m ()
 equal t u = do
   rt <- reduceNF t
   ru <- reduceNF u
-  go rt ru
-  where
-    go :: MonadTypeCheck m => Term -> Term -> m ()
-    go t1@(V (Free x)) t2@(V (Free y)) = do
-      xeqy <- x `varEq` y
-      unless xeqy (throwError (ENeq t1 t2))
-    go (Lam a1 t) (Lam a2 u) = doAndRestore (do
-      i1 <- newVar (argName a1)
-      i2 <- newVar (argName a2)
-      unifyVars i1 i2
-      go (open i1 t) (open i2 u)
-      )
-    go (Con c) (Con d)
-      | c == d = return ()
-    go (Data d1) (Data d2)
-      | d1 == d2 = return ()
-    go (Elim (V (Free x)) xbs) (Elim (V (Free y)) ybs) = do
-      equal (V (Free x)) (V (Free y))
-      bequalV x y xbs ybs
-    go t1@(Elim t tbs) t2@(Elim u ubs) =do
-      equal t u
-      bequal tbs ubs
-    go (Fix f fa _ t) (Fix g ga _ u) = doAndRestore (do
-      fi <- newVar f
-      gi <- newVar g
-      unifyVars fi gi
-      fai <- newVar (argName fa)
-      gai <- newVar (argName ga)
-      unifyVars fai gai
-      go (open2 fi fai t) (open2 gi gai u)
-      )
-    go (Pi a1 ty) (Pi a2 uy) = doAndRestore (do
-      i1 <- newVar (argName a1)
-      i2 <- newVar (argName a2)
-      unifyVars i1 i2
-      openType i1 ty `tequal` openType i2 uy)
-    go (Sort s) (Sort t) = s `sequal` t
-    go (Ann t _) u = go t u
-    go t (Ann u _) = go t u
-    
-    go (t1 :@: u1) (t2 :@: u2) = equal t1 t2 >> equal u1 u2
+  equal' rt ru
 
-    go (V (Bound _)) _ = error "bound in reduced"
-    go _ (V (Bound _)) = error "bound in reduced"
+equal' :: MonadTypeCheck m => Term -> Term -> m ()
+equal' t1@(V (Free x)) t2@(V (Free y)) = do
+  xeqy <- x `varEq` y
+  unless xeqy (throwError (ENeq t1 t2))
+equal' (Lam a1 t) (Lam a2 u) = doAndRestore (do
+  i1 <- newVar (argName a1)
+  i2 <- newVar (argName a2)
+  unifyVars i1 i2
+  equal' (open i1 t) (open i2 u)
+  )
+equal' (Con c) (Con d)
+  | c == d = return ()
+equal' (Data d1) (Data d2)
+  | d1 == d2 = return ()
+equal' (Elim (V (Free x)) xbs) (Elim (V (Free y)) ybs) = do
+  equal' (V (Free x)) (V (Free y))
+  bequalV x y xbs ybs
+equal' t1@(Elim t tbs) t2@(Elim u ubs) = do
+  equal' t u
+  bequal tbs ubs
+equal' (Fix f fa _ t) (Fix g ga _ u) = doAndRestore (do
+  fi <- newVar f
+  gi <- newVar g
+  unifyVars fi gi
+  fai <- newVar (argName fa)
+  gai <- newVar (argName ga)
+  unifyVars fai gai
+  equal' (open2 fi fai t) (open2 gi gai u)
+  )
+equal' (Pi a1 ty) (Pi a2 uy) = doAndRestore (do
+  i1 <- newVar (argName a1)
+  i2 <- newVar (argName a2)
+  unifyVars i1 i2
+  openType i1 ty `tequal` openType i2 uy)
+equal' (Sort s) (Sort t) = s `sequal` t
+equal' (Ann t _) u = equal' t u
+equal' t (Ann u _) = equal' t u
 
-    go t u = throwError (ENeq t u)
+equal' (t1 :@: u1) (t2 :@: u2) = equal' t1 t2 >> equal' u1 u2
+
+equal' (V (Bound _)) _ = error "bound in reduced"
+equal' _ (V (Bound _)) = error "bound in reduced"
+
+equal' t u = throwError (ENeq t u)
 
 
 tequal :: MonadTypeCheck m => Type -> Type -> m ()
@@ -76,6 +76,7 @@ bequalV :: MonadTypeCheck m => Int -> Int -> [ElimBranch] -> [ElimBranch] -> m (
 bequalV x y (ElimBranch c a1 r1 : bs) b2 =
   let (ElimBranch _ a2 r2, b2') = findBranch c b2
   in  doAndRestore (do
+        -- TODO por que uso dos listas de variables??
         is1 <- mapM newVar a1
         is2 <- mapM newVar a2
         zipWithM_ unifyVars is1 is2
@@ -85,7 +86,7 @@ bequalV x y (ElimBranch c a1 r1 : bs) b2 =
         bindPattern y dy
         let r1' = openMany is1 r1
             r2' = openMany is2 r2
-        equal r1' r2')
+        equal' r1' r2')
       >> bequalV x y bs b2'
 bequalV x y [] [] = return ()
 bequalV x y bs b2 = error $ "Equality: error en branches " ++ show bs ++ " = " ++ show b2
@@ -99,7 +100,7 @@ bequal (b1 : bs1) bs2 =
     zipWithM_ unifyVars is1 is2
     let r1 = openMany is1 (elimRes b1)
         r2 = openMany is2 (elimRes b2)
-    equal (elimRes b1) (elimRes b2)  
+    equal' (elimRes b1) (elimRes b2)  
     )
     >> bequal bs1 bs2'
 
