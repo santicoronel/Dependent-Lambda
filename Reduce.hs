@@ -13,73 +13,96 @@ import Context ( freshVar )
 import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
 import Data.Foldable (foldrM)
+import Control.Monad.Extra ( ifM )
 
 -- TODO eta reducccion
 -- TODO reduccion parcial
--- TODO no expandir vars recursivas
--- TODO usar un stack para hacerlo mas eficiente
 
+data Kont =
+  KFun Term
+  | KArg Term
+  | KElim [ElimBranch] deriving Show
+
+type Stack = [Kont]
+
+-- TODO pensar si de verdad quiero reducir fix una vez
 reduceNF :: MonadTypeCheck m => Term -> m Term
-reduceNF (V v) = case v of
-  Bound i -> error "bound in reduce"
-  Free i -> do
-    dx <- getLocalDef i
-    case dx of
-      Nothing -> return (V v)
-      Just dx -> return dx
-  Global x -> getGlobalDef x
--- TODO hace falta restorear??
--- creo q si por el uf
-reduceNF (Lam arg t) = doAndRestore (do
-  i <- bindArg (argName arg) (argType arg)
-  let t' = open i t
-  rt <- reduceNF t'
-  return (Lam arg (close i rt))
-  ) 
-reduceNF (t :@: u) = do
-  t' <- reduceNF t
-  u' <- reduceNF u
-  case t' of
-    (Lam arg t) -> do
-      i <- bindLocal (argName arg) (argType arg) u'
-      reduceNF (open i t)
-    (Fix f arg ty s) -> do
-      -- TODO aplicar con var fresca
-      -- ahora puedo :) pero tengo q manejarlo en otro lado
-      -- i.e. agregar isRec, manejar bien en todos los usos
-      if isCons u'
+reduceNF t = seek [] t
+  where
+    seek s (V (Bound i)) = error "bound in reduce"
+    seek s (V (Free i)) = do
+      dx <- getLocalDef i
+      case dx of
+        Nothing -> destroy s (V (Free i))
+        Just d -> ifM (isRec i)
+          (destroy s (V (Free i)))
+          (seek s d)
+    seek s (V (Global x)) = do
+      dx <- getGlobalDef x
+      seek s dx
+    seek s (Lam arg t) = destroy s (Lam arg t)
+    seek s (t :@: u) = seek (KArg u : s) t
+    seek s (Elim t bs) = seek (KElim bs : s) t
+    seek s (Fix f arg ty t) = destroy s (Fix f arg ty t)
+    seek s (Pi arg ty) = do
+      i <- bindArg (argName arg) (argType arg)
+      ty' <- reduceNFType (openType i ty)
+      destroy s (Pi arg (closeType i ty'))
+    seek s (Ann t ty) = seek s t
+    seek s t = destroy s t
+
+    destroy (KFun f : s) t = destroyFun s f t
+    destroy (KArg t : s) u = case u of
+      Lam arg a -> do
+        i <- bindLocal (argName arg) (argType arg) t
+        seek s (open i a)
+      -- MAYBE tratar a f como un lambda a partir de aca
+      -- pero marcada como recursiva
+      -- tendria q abrir `a` solo para f
+      Fix f arg ty a -> seek (KFun u : s) t
+      Con _ -> destroy s (u :@: t)
+      (_:@:_) -> destroy s (u :@: t)
+      _ -> seek (KFun u : s) t
+    destroy (KElim bs : s) t = case inspectCons t of
+      Just (ch, as) -> do
+        let b = match ch bs
+        is <- mapM newVar (elimConArgs b)
+        zipWithM_ bindPattern is as
+        seek s (openMany is (elimRes b))
+      Nothing -> destroy s (Elim t bs)
+    destroy [] t = case t of
+      Lam arg t -> doAndRestore (do
+        i <- bindArg (argName arg) (argType arg)
+        t' <- reduceNF (open i t)
+        return (Lam arg $ close i t')
+        )
+      Fix f arg ty u -> doAndRestore (do
+        (fi, xi) <- bindFun f ty t arg Nothing
+        u' <- seek [] (open2 fi xi u)
+        return (Fix f arg ty (close2 fi xi u'))
+        )
+      Elim t bs -> Elim <$> reduceNF t <*> reduceNFBranches bs
+      (a :@: b) -> (:@:) <$> reduceNF a <*> reduceNF b
+      (Data (Eq a b)) -> Data <$> (Eq <$> reduceNF a <*> reduceNF b)
+      _ -> return t
+
+    destroyFun s (V (Free i)) t = do
+      dx <- getLocalDef i
+      case dx of
+        Nothing -> do
+          t' <- reduceNF t
+          destroy s (V (Free i) :@: t')
+        Just (Fix f arg ty u) -> if isCons t
+          then destroy (KArg t : s) (Fix f arg ty u)
+          else destroy s (V (Free i) :@: t)
+        Just d -> error "destroyFun: var no expandida"
+    destroyFun s t@(Fix f arg ty a) u = if isCons u
         then do
-          (fi, xi) <- bindFun f ty t arg (Just u')
-          reduceNF (open2 fi xi s)
-        else return (t' :@: u')
-    _ -> return (t' :@: u')
-reduceNF (Data (Eq t u)) = do
-  t' <- reduceNF t
-  u' <- reduceNF u
-  return (Data (Eq t' u'))
-reduceNF (Elim t bs) = do
-  t' <- reduceNF t
-  case inspectCons t' of
-    Just (ch, as) -> doAndRestore (do
-      let b = match ch bs
-      is <- mapM newVar (elimConArgs b)
-      zipWithM_ bindPattern is as
-      reduceNF (openMany is (elimRes b))
-      )
-    Nothing -> Elim t' <$> reduceNFBranches bs
-reduceNF t@(Fix f arg ty s) = doAndRestore (do
-  (fi, xi) <- bindFun f ty t arg Nothing
-  s' <- reduceNF (open2 fi xi s)
-  return (Fix f arg ty (close2 fi xi s'))
-  )
-reduceNF (Pi arg ty) = doAndRestore (do
-  i <- bindArg (argName arg) (argType arg)
-  ty' <- reduceNFType (openType i ty)
-  argty <- reduceNFType (openType i (argType arg))
-  return (Pi arg { argType = closeType i argty } (closeType i ty'))
-  )
-reduceNF (Ann t ty) = reduceNF t
-reduceNF t = return t
+          (fi, xi) <- bindFun f ty t arg (Just u)
+          a' <- seek s (open2 fi xi a)
+          return (substFree fi t a')
+        else destroy s (Fix f arg ty a :@: u)
+    destroyFun s f t = destroy s (f :@: t)
 
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType (Type t) = Type <$> reduceNF t
@@ -124,86 +147,3 @@ reduce = reduceNF
 
 reduceType :: MonadTypeCheck m => Type -> m Type
 reduceType = reduceNFType
-
-
--- NICETOHAVE hacer bien esto
-
-{-
-reduceH :: MonadTypeCheck m => Term -> m (Maybe Term)
--- TODO chequear si es rec
-reduceH (V (Local x)) = do
-  mdx <- getLocalDef
-  case mdx of
-    Nothing -> do
-      res <- mapM reduceHead xes
-      return (V (Local x) <$> res)
-    (Just dx, _) -> reduceHead (foldl (:@:) dx x)
-reduceH (V (Global x) xes) = do
-  dx <- getGlobalDef x
-  reduceHead (foldl (:@:) dx xes)
-reduceH t = reduceHead t
-
-reduceHead :: MonadTypeCheck m => Term -> m (Maybe Term)
-reduceHead (V (Local x) xes) = do
-  res <- mapM reduceHead xes
-  return (V (Local x) <$> res)
-reduceHead (V (Global x) xes) = do
-  res <- mapM reduceHead xes
-  return (V (Global x) <$> res)
-reduceHead (Lam arg (Scope t)) = do
-  bindArg (argName arg) (argType arg)
-  t' <- reduceHead t
-  unbind (argName arg)
-  return (Lam arg . Scope <$> t')
-reduceHead (t :@: u) = do
-  rt <- reduceHead t
-  ru <- reduceHead u
-  case (rt, ru) of
-    (Nothing, Nothing) -> return Nothing
-    (Just t', _) ->
-      let u' = fromJust u ru
-      in case t' of
-        (V (Local x) xes) -> return (Just $ (V (Local x) (xes ++ [u'])))
-        (V (Global x) xes) -> return (Just $ (V (Global x) (xes ++ [u'])))
-        (Lam arg (Scope s)) -> do
-          bindLocal (argName arg) (argType arg) u'
-          reduceHead s
-        (Fix f arg ty s) -> do
-          bindRec f ty t arg
-          bindLocal (argName arg) (argType arg) u'
-          reduceHead s
-        _ -> error "reduceHead: type error en rt"
-    (Nothing, Just u') -> return (Just $ t :@: u') 
-reduceHead (Elim t bs) = do
-  -- NICETOHAVE no reducir todas las branches si voy a eliminar
-  mt <- reduceHead t
-  mbs <- reduceHeadBranches
-  case (mt, mbs) of
-    (Nothing, Nothing) -> return Nothing
-    (Nothing, Just bs') -> return (Just $ Elim t bs')
-    (Just t', _) ->
-      let bs' = fromJust bs mbs
-      in case t' of
-        V _ _ -> return (Just $ Elim t' bs')
-        Con ch as -> matchHead ch as bs'
-        _ -> error "reduceHead: type error"
-reduceHead t@(Fix f arg ty s) = do
-  bindRec f ty t arg
-  s' <- reduceHead s
-  unbind (argName arg)
-  unbind f
-  return (Fix f arg ty <$> s')
-reduceHead (Pi arg (Scope ty)) = do
-  bindArg (argName arg) (argType arg)
-  ty' <- reduceHeadType ty
-  unbind (argName arg)
-  return (Pi arg  . Scope <$> ty')
-reduceHead (Ann t ty) = reduceHead t
-reduceHead t = return Nothing
-
-reduceHeadType :: MonadTypeCheck m => Type -> m (Maybe Type)
-reduceHeadType (Type t) = do
-  t' <- reduceHead t
-  return (Type <$> t')
-
--}

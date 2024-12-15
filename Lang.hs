@@ -138,7 +138,7 @@ data Term =
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
   | Elim Term [ElimBranch]
-  | Fix Name Arg Type Term
+  | Fix Name Arg Type Term -- TODO sacar type
   | Pi Arg Type
   | Sort Sort
   | Ann Term Type
