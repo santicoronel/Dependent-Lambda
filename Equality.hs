@@ -30,6 +30,7 @@ equal' (Lam a1 t) (Lam a2 u) = doAndRestore (do
   )
 equal' (Con c) (Con d)
   | c == d = return ()
+equal' (Data (Eq t u)) (Data (Eq r s)) = equal' t r >> equal' u s
 equal' (Data d1) (Data d2)
   | d1 == d2 = return ()
 equal' (Elim (V (Free x)) xbs) (Elim (V (Free y)) ybs) = do
