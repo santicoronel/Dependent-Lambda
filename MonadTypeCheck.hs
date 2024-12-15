@@ -113,12 +113,12 @@ bindFun f ty df arg dx = do
       ld = localDefs ctx
       fty = Type (Pi arg ty)
       bf = LBinder fi fty
-      bdf = LDef fi df
+      bdf = LDef fi df True
       bx = LBinder xi (argType arg)
       lc' = bx : bf : lc
       ld' = case dx of
         Nothing -> bdf : ld
-        Just d -> LDef xi d : bdf : ld
+        Just d -> LDef xi d False : bdf : ld
   put (ctx { local = lc', localDefs = ld' })
   return (fi, xi)
 
@@ -129,7 +129,7 @@ bindLocal x ty d = do
   let lc = local ctx
       lds = localDefs ctx
       lb = LBinder i ty
-      ld = LDef i d
+      ld = LDef i d False
   put (ctx { local = lb : lc, localDefs = ld : lds })
   return i
 
@@ -137,7 +137,7 @@ bindPattern :: MonadState Context m => Int -> Term -> m ()
 bindPattern x p = do
   ctx <- get
   let lds = localDefs ctx
-  put ctx { localDefs = LDef x p : lds}
+  put ctx { localDefs = LDef x p False : lds}
 
 unbindPattern :: MonadState Context m => Int -> m ()
 unbindPattern x = do
@@ -168,3 +168,10 @@ varEq x y = do
     Just (uf, res) -> do
       put ctx { unif = uf }
       return res
+
+isRec :: MonadTypeCheck m => Int -> m Bool
+isRec i = do
+  ctx <- get
+  case lookupWith i (localDefs ctx) defVar localRec of
+    Just t -> return t
+    Nothing -> error "isRec: variable no definida"

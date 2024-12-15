@@ -125,6 +125,11 @@ data STerm =
 
 infixl 9 :@:
 
+-- NICETOHAVE marcar si una var es recursiva
+-- asi puedo no expandir globales tmb
+-- tendria que tener un open/close especial
+-- pero no tendria q consultar siempre el entorno
+
 data Term =
   V Var
   | Lam Arg Term

@@ -75,23 +75,6 @@ runProgram p = do
           putStrLn ":"
           print ty
 
-{-
-runTerm :: Term -> IO ()
-runTerm t =
-  let rt = do
-      ty <- infer t
-      ty' <- reduceType ty
-      t' <- reduce t
-      return (t', ty')
-  in case runState (runExceptT rt) emptyContext of
-      (Left e, ctx) -> print e -- TODO aca hay variables free
-      (Right (t', ty), _) -> do
-        putStrLn "Termino:"
-        print t'
-        putStrLn "Tipo:"
-        print ty
--}
-
 loadFile :: FilePath -> IO (Maybe SProgram)
 loadFile f = do
     let filename = reverse(dropWhile isSpace (reverse f))

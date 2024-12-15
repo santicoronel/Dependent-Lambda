@@ -17,7 +17,8 @@ data LocalBinder = LBinder {
 
 data LocalDef = LDef {
   defVar :: Int,
-  localDef :: Term
+  localDef :: Term,
+  localRec :: Bool
 } deriving Show
 
 data GlobalBinder = GBinder {

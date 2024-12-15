@@ -37,17 +37,14 @@ infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
 infer t@(Fix f arg ty u) = do
   shouldBeType (argType arg)
-  ty' <- inferFixType
-  fi <- bindLocal f (Type $ Pi arg ty') t
-  xi <- bindArg (argName arg) (argType arg)
+  -- MAYBE tratar a f como un lambda a partir de aca
+  -- pero marcada como recursiva
+  -- tendria q abrir `a` solo para f
+  (fi, xi) <- bindFun f ty t arg Nothing
+  let ty' = openType xi ty
+  shouldBeType ty'
   check (open2 fi xi u) ty'
-  return (Type (Pi arg ty'))
-  where
-    inferFixType = doAndRestore $ do
-      xi <- bindArg (argName arg) (argType arg)
-      let ty' = openType xi ty
-      shouldBeType ty'
-      return (closeType xi ty')
+  return (Type (Pi arg (closeType xi ty')))
 
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
@@ -156,6 +153,7 @@ checkElim (V (Free x)) bs ty = do
   case unType tt' of
     Data d -> checkElim' x d bs ty
     _ -> throwError (ENotData tt')
+-- TODO aca perdemos demasiada info
 checkElim t bs ty = do
   et <- inferElim t bs
   et `tequal` ty

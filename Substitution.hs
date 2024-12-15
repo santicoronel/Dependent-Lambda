@@ -106,3 +106,10 @@ subst2 f x = varChanger bnd (\_ n -> V (Free n))
 
 subst2Type :: Term -> Term -> Type -> Type
 subst2Type f x = Type . subst2 f x . unType
+
+substFree :: Int -> Term -> Term -> Term
+substFree x t = varChanger (\_ i -> V (Bound i)) lcl
+  where
+    lcl _ i
+      | i == x = t
+      | otherwise = V (Free i)
