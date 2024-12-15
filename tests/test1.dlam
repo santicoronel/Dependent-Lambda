@@ -1,0 +1,73 @@
+
+/*let foo (x y : Nat) (r : x = y) : suc y = suc x := elim r { refl := refl }
+let fo (r : 4 = 3) : 4 = 5 := elim r {}
+
+let Bot : Set := 0 = 1
+let absurd (A : Set) (p : Bot) : A := elim p {}
+
+/*let pred : (_:Nat) -> Nat := fix f (x : Nat) : Nat . elim x {
+    zero := 0 ;
+    suc n := n
+}*/
+
+//let pred_0 : pred 0 = 0 := refl
+//let pred_suc (x : Nat) : pred (suc x) = x := refl
+*/
+let null : (_:Nat) -> Nat := fix f (x : Nat) : Nat . elim x {
+    zero := 0 ;
+    suc n := f n
+}
+
+
+//let null_t (x : Nat) : null x = null x := refl
+
+
+let trans (A : Set) (x y z : A) (r : x = y) (s : y = z)
+: x = z := elim r {
+    refl := elim s { refl := refl }
+}
+
+let null0_0 : null 0 = 0 := refl
+
+let null0_s (n : Nat) : null (suc n) = null n := refl
+
+let null0 : (n : Nat) -> null n = 0 := fix f (n : Nat) : null n = 0.
+elim n {
+    zero := null0_0 ;
+    suc n := trans Nat (null (suc n)) (null n) 0 (null0_s n) (f n)
+}
+
+let nat_ind (P : (_:Nat) -> Set) 
+        (p0 : P 0) (ps : (n : Nat) -> (_:P n) -> P (suc n))
+        : (x : Nat) -> P x := fix f (x : Nat) : P x. elim x {
+            zero := p0 ;
+            suc n := ps n (f n)
+        }
+
+let double : (_ : Nat) -> Nat := fix r (x : Nat) : Nat. elim x {
+    zero := zero ;
+    suc n := suc (suc (r n))
+}
+
+let double_suc (n : Nat) : double (suc n) = suc (suc (double n)) :=
+refl
+
+let sum : (_:Nat) -> (_: Nat) -> Nat := fix r (m : Nat) : (_:Nat) -> Nat.
+\(n : Nat). elim m {
+    zero := n ;
+    suc m' := suc (r m' n)
+}
+
+let cong_suc (m n : Nat) (r : m = n) : suc m = suc n :=
+elim r { refl := refl }
+
+let sum0_suc (n : Nat) (r : sum n 0 = n) : suc (sum n 0) = suc n :=
+cong_suc (sum n 0) n r
+
+let sum0 : (n : Nat) -> sum n 0 = n := fix r (n : Nat) : sum n 0 = n.
+elim n {
+    zero := refl ;
+    suc m := sum0_suc m (r m) : su  m n 0 = n
+}
+
+// 

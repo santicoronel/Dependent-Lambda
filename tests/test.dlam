@@ -1,10 +1,10 @@
 
-let eqsuc (x : Nat) (y : Nat) (r : x = y) : suc x = suc y := elim r {
+let eqsuc (x y : Nat) (r : x = y) : suc x = suc y := elim r {
     refl := refl
 }
 
 
-let cong (A : Set) (x : A) (y : A)
+let cong (A : Set) (x y : A)
         (f : (_:A) -> A) (r : x = y)
         : f x = f y := elim r {
     refl := refl
@@ -59,13 +59,13 @@ fix f (x : Nat) : (_ : Nat) -> Nat .
 
 
 let subst (A : Set) (P : (_ : A) -> Set)
-        (x : A) (y : A) (r : x = y)
+        (x y : A) (r : x = y)
         (p : P x) : P y := elim r {
     refl := p
 }
 
 let eq_elim (A : Set) (C : (_ : A) -> (_: A) -> Set)
-        (x : A) (y : A) (r : x = y)
+        (x y : A) (r : x = y)
         (j : (x : A) -> C x x) : C x y :=
     elim r {
     refl := j x
