@@ -24,4 +24,5 @@ data TypeError =
   | EUnifiable
   | ENeq Term Term
   | EGlobalEx Name
+  | ECheckFun Term
   deriving Show

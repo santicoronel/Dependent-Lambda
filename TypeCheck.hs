@@ -126,9 +126,17 @@ inferSort (Type t) = do
     Sort s -> return s
     _ -> throwError (ENotType t)
 
--- TODO creo q no hace falta chequear shouldBeType
--- lo hacemos antes de llamar
 check :: MonadTypeCheck m => Term -> Type -> m ()
+check (Lam arg t) ty = doAndRestore (do
+  shouldBeType (argType arg)
+  ty' <- reduceType ty
+  case unType ty' of
+    Pi piarg pity -> do
+      argType arg `tequal` argType piarg 
+      i <- bindArg (argName arg) (argType piarg)
+      check (open i t) (openType i pity)
+    _ -> throwError $ ECheckFun (Lam arg t)
+  )
 check (Elim t ts) ty = checkElim t ts ty
 check (Con ch) ty = checkCon ch ty
 check t ty = do

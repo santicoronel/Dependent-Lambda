@@ -59,12 +59,15 @@ let sum : (_:Nat) -> (_: Nat) -> Nat := fix r (m : Nat) : (_:Nat) -> Nat.
 let cong_suc (m n : Nat) (r : m = n) : suc m = suc n :=
 elim r { refl := refl }
 
+
 let sum0 : (n : Nat) -> sum n 0 = n := fix r (n : Nat) : sum n 0 = n.
 elim n {
     zero := refl ;
     suc n' := cong_suc (sum n' 0) n' (r n')
 }
-/*
+
 let sum_suc : (m n : Nat) -> sum m (suc n) = suc (sum m n) :=
-fix (m : Nat) : (n : Nat) -> sum
-*/
+fix r (m : Nat) : (n : Nat) -> sum m (suc n) = suc (sum m n) . \(n : Nat). elim m {
+    zero := refl ;
+    suc m' := cong_suc (sum m' (suc n)) (suc (sum m' n)) (r m' n)
+}
