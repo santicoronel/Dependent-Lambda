@@ -163,7 +163,9 @@ checkElim (V (Free x)) bs ty = do
     _ -> throwError (ENotData tt')
 -- TODO aca perdemos demasiada info
 checkElim t bs ty = do
-  et <- inferElim t bs
+  -- NICETOHAVE hacer esto menos choto
+  let bs' = map (\b -> b { elimRes = Ann (elimRes b) ty }) bs
+  et <- inferElim t bs'
   et `tequal` ty
 
 checkElim' :: MonadTypeCheck m => Int -> DataType -> [ElimBranch] -> Type ->  m ()

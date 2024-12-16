@@ -10,7 +10,11 @@ import Control.Monad.State
 import Control.Monad ( zipWithM_ )
 import Context (freshVar)
 import Substitution
+import Control.Monad.Extra ( unlessM )
 
+
+-- TODO no tiene sentido abrir lambdas/fix/elims
+-- con de brujin tengo alfa equivalencia gratis
 
 equal :: MonadTypeCheck m => Term -> Term -> m ()
 equal t u = do
@@ -19,9 +23,8 @@ equal t u = do
   equal' rt ru
 
 equal' :: MonadTypeCheck m => Term -> Term -> m ()
-equal' t1@(V (Free x)) t2@(V (Free y)) = do
-  xeqy <- x `varEq` y
-  unless xeqy (throwError (ENeq t1 t2))
+equal' t1@(V (Free x)) t2@(V (Free y)) =
+  unlessM (x `varEq` y) (throwError (ENeq t1 t2))
 equal' (Lam a1 t) (Lam a2 u) = doAndRestore (do
   i1 <- newVar (argName a1)
   i2 <- newVar (argName a2)
@@ -59,8 +62,8 @@ equal' t (Ann u _) = equal' t u
 
 equal' (t1 :@: u1) (t2 :@: u2) = equal' t1 t2 >> equal' u1 u2
 
-equal' (V (Bound _)) _ = error "bound in reduced"
-equal' _ (V (Bound _)) = error "bound in reduced"
+equal' (V (Bound i)) _ = error $ "equal: bound " ++ show i ++ " in reduced"
+equal' _ (V (Bound i)) = error $ "equal: bound " ++ show i ++ " in reduced"
 
 equal' t u = throwError (ENeq t u)
 
@@ -101,9 +104,11 @@ bequal (b1 : bs1) bs2 =
     zipWithM_ unifyVars is1 is2
     let r1 = openMany is1 (elimRes b1)
         r2 = openMany is2 (elimRes b2)
-    equal' (elimRes b1) (elimRes b2)  
+    equal' r1 r2
     )
     >> bequal bs1 bs2'
+bequal [] [] = return ()
+bequal bs b2 = error $ "Equality: error en branches " ++ show bs ++ " = " ++ show b2
 
 findBranch :: ConHead -> [ElimBranch] -> (ElimBranch, [ElimBranch])
 findBranch c [] = error "findBranch"

@@ -5,7 +5,7 @@ let fo (r : 4 = 3) : 4 = 5 := elim r {}
 let Bot : Set := 0 = 1
 let absurd (A : Set) (p : Bot) : A := elim p {}
 
-let pred : (_:Nat) -> Nat := fix f (x : Nat) : Nat . elim x {
+let pred (x : Nat) : Nat := elim x {
     zero := 0 ;
     suc n := n
 }
@@ -67,7 +67,70 @@ elim n {
 }
 
 let sum_suc : (m n : Nat) -> sum m (suc n) = suc (sum m n) :=
-fix r (m : Nat) : (n : Nat) -> sum m (suc n) = suc (sum m n) . \(n : Nat). elim m {
+fix r (m n : Nat) : sum m (suc n) = suc (sum m n) . elim m {
     zero := refl ;
     suc m' := cong_suc (sum m' (suc n)) (suc (sum m' n)) (r m' n)
 }
+
+let sym (A : Set) (x y : A) (r : x = y) : y = x := elim r { refl := refl }
+
+let sum_comm : (m n : Nat) -> sum m n = sum n m :=
+fix r (m n : Nat) : sum m n = sum n m . elim m {
+    zero := sym Nat (sum n m) n (sum0 n) ;
+    suc m' := trans Nat (sum m n) (suc (sum n m')) (sum n m)
+                        (cong_suc (sum m' n) (sum n m') (r m' n))
+                        (sym Nat (sum n (suc m')) (suc (sum n m')) (sum_suc n m'))
+}
+
+let subs (m : Nat) : (_:Nat) -> Nat :=
+fix subs (n : Nat) : Nat . elim n {
+    zero := m ;
+    suc n' := pred (subs n')
+}
+
+
+let cong (A B : Set) (x y : A) (f : (x : A) -> B) (r : x = y) : f x = f y :=
+elim r {
+    refl := refl
+}
+
+
+let subs0 : (n : Nat) -> subs 0 n = 0 :=
+fix r (n : Nat) : subs 0 n = 0 . elim n {
+    zero := refl ;
+    suc n' := cong Nat Nat (subs 0 n') 0 pred (r n') 
+}
+
+
+
+let subs_suc (m : Nat) : (n : Nat) -> subs (suc m) (suc n) = subs m n :=
+fix r (n : Nat) : subs (suc m) (suc n) = subs m n . elim n {
+    zero := refl ;
+    suc n' := cong Nat Nat (subs (suc m) n) (subs m n') pred (r n')
+}
+
+
+let subsn : (n : Nat) -> subs n n = 0 :=
+fix subsn (n : Nat) : subs n n = 0 . elim n {
+    zero := refl ;
+    suc n' := trans Nat (subs n n) (subs n' n') 0 (subs_suc n' n') (subsn n')
+}
+
+let mult : (_:Nat) -> (_:Nat) -> Nat := fix mult (m n : Nat) : Nat . elim m {
+    zero := zero ;
+    suc m' := sum n (mult m' n)
+}
+
+let mult0 : (n : Nat) -> mult n 0 = 0 := fix mult0 (n : Nat) : mult n 0 = 0 . elim n {
+    zero := refl ;
+    suc n' := mult0 n'
+}
+
+
+/*
+TODO terrible kilomboo
+let mult_suc : (m n : Nat) -> mult m (suc n) = sum m (mult m n) :=
+fix mul_suc (m n : Nat) : mult m (suc n) = sum n (mult m n) . elim m {
+    zero := refl ;
+    suc m' := 
+}*/

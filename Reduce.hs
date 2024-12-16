@@ -29,7 +29,7 @@ type Stack = [Kont]
 reduceNF :: MonadTypeCheck m => Term -> m Term
 reduceNF t = seek [] t
   where
-    seek s (V (Bound i)) = error "bound in reduce"
+    seek s (V (Bound i)) = error $ "bound " ++ show i ++ " in reduceNF"
     seek s (V (Free i)) = do
       dx <- getLocalDef i
       case dx of
