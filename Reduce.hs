@@ -40,10 +40,8 @@ reduceNF t = seek [] t
     seek s (V (Global x)) = do
       dx <- getGlobalDef x
       seek s dx
-    seek s (Lam arg t) = destroy s (Lam arg t)
     seek s (t :@: u) = seek (KArg u : s) t
     seek s (Elim t bs) = seek (KElim bs : s) t
-    seek s (Fix f arg ty t) = destroy s (Fix f arg ty t)
     seek s (Pi arg ty) = do
       i <- bindArg (argName arg) (argType arg)
       ty' <- reduceNFType (openType i ty)
@@ -56,10 +54,6 @@ reduceNF t = seek [] t
       Lam arg a -> do
         i <- bindLocal (argName arg) (argType arg) t
         seek s (open i a)
-      -- MAYBE tratar a f como un lambda a partir de aca
-      -- pero marcada como recursiva
-      -- tendria q abrir `a` solo para f
-      Fix f arg ty a -> seek (KFun u : s) t
       Con _ -> destroy s (u :@: t)
       (_:@:_) -> destroy s (u :@: t)
       _ -> seek (KFun u : s) t
@@ -95,12 +89,16 @@ reduceNF t = seek [] t
         Just (Fix f arg ty u) -> if isCons t
           then destroy (KArg t : s) (Fix f arg ty u)
           else destroy s (V (Free i) :@: t)
-        Just d -> error "destroyFun: var no expandida"
+        Just _ -> error "destroyFun: var no expandida"
     destroyFun s t@(Fix f arg ty a) u = if isCons u
         then do
+          -- MAYBE tratar a f como un lambda a partir de aca
+          -- pero marcada como recursiva
+          -- tendria q abrir `a` solo para f
           (fi, xi) <- bindFun f ty t arg (Just u)
           a' <- seek s (open2 fi xi a)
-          return (substFree fi t a')
+          t' <- reduceNF t
+          return (substFree fi t' a') -- esta bien esto??
         else destroy s (Fix f arg ty a :@: u)
     destroyFun s f t = destroy s (f :@: t)
 
