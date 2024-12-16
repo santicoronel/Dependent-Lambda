@@ -8,6 +8,7 @@ import Unify
 import Equality
 import Reduce
 import Substitution
+import Common
 
 import Control.Monad.Except
 import Control.Monad.State

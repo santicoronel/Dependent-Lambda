@@ -21,5 +21,3 @@ equivalent uf x y = do
   rx <- mrx
   ry <- mry
   return (uf { ds = ds'' }, rx == ry)
--- aca no
-equivalent uf x y = Just (uf, DS.equivalent x y (ds uf))

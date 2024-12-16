@@ -4,6 +4,7 @@ import Lang
 import Reduce
 import MonadTypeCheck
 import Error
+import Common
 
 import Control.Monad.Except
 import Control.Monad.State

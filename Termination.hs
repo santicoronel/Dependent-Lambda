@@ -12,7 +12,7 @@ import qualified Transitive as TR
 
 import Control.Monad.State
 import Control.Monad.Except
-import MonadTypeCheck ( doAndRestore )
+import Common
 import Substitution
 
 -- NICETOHAVE permitir recursion mutua (foetus)

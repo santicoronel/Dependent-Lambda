@@ -5,6 +5,7 @@ import MonadTypeCheck
 import Context -- TODO no quiero importar esto siempre (ver abajo)
 import Error
 import Reduce
+import Common
 
 import Control.Monad.State -- medio paja importar esto TODO extender interfaz MonadTypeCheck
 import Control.Monad.Except

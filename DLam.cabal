@@ -21,6 +21,7 @@ executable DLam
       Transitive
       Substitution
       Elab
+      Common
     ghc-options: 
         -threaded 
         -rtsopts 
