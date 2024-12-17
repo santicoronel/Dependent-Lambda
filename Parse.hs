@@ -7,12 +7,11 @@ import Lang hiding ( var )
 import Text.Parsec hiding ( runP )
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Token as Tok
-import Control.Monad.Identity (Identity)
-import Control.Exception.Extra (tryBool)
 
 type P = Parsec String ()
 
 -- NICETOHAVE parsear, por ej, un punto pegado a una barra
+-- NICETOHAVE parsear identificadores a lo agda
 
 langDef :: LanguageDef u
 langDef = emptyDef {
