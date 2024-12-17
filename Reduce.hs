@@ -9,6 +9,7 @@ import Lang
 import MonadTypeCheck
 import Substitution
 import Context ( freshVar )
+import Common
 
 import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
