@@ -1,0 +1,12 @@
+
+data Bool : Set {
+    false : Bool ;
+    true : Bool
+}
+
+let is_zero (n : Nat) : Bool := elim n {
+    zero := true ;
+    suc _ := false
+}
+
+let main : Bool := is_zero 3

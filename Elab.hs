@@ -3,12 +3,14 @@
 module Elab where
 
 import Lang
+import Common
+import Datatype
 
 import Control.Monad.State
 import Control.Monad.Except
 import Data.List ( elemIndex, group )
 
-data ElabError = ElabError String
+data ElabError = ElabError String | DataError String
 
 data ElabContext = ElabContext {
     local :: [Name],
@@ -23,29 +25,56 @@ emptyElabContext = ElabContext [] [] [] []
 class (MonadError ElabError m, MonadState ElabContext m) =>
   MonadElab m
 
--- TODO hacer una sola jijis
-lookupWith :: Eq i => i -> [a] -> (a -> i) -> (a -> b) -> Maybe b
-lookupWith _ [] _ _ = Nothing
-lookupWith x (b : bs) gn gt
-  | x == gn b = Just (gt b)
-  | otherwise = lookupWith x bs gn gt
+globalNames :: MonadState ElabContext m => m [Name]
+globalNames = do
+  ctx <- get
+  return (global ctx ++ datatypes ctx ++ map conName (cons ctx))
 
 elabProgram :: MonadElab m => SProgram -> m Program
 elabProgram = mapM go
   where
-    go sd = do
+    go (PDecl d) = do
       modify (\ctx -> ctx { local = [] })
-      elabDecl sd
+      PDecl <$> elabDecl d
+    go (PData sdt) = do
+      modify (\ctx -> ctx { local = [] })
+      dt <- elabData sdt
+      case checkData dt of
+        Left (DError e) -> throwError (DataError e)
+        Right dt' -> do
+          modify (\ctx -> ctx { cons = dataCons dt' ++ cons ctx })
+          return (PData dt')
 
 elabDecl :: MonadElab m => SDecl -> m Decl
 elabDecl (SDecl n args ty t) = do
-  ctx <- get
-  when (n `elem` global ctx) 
-    (throwError $ ElabError $ "variable global " ++ n ++ " ya existe")
+  gnames <- globalNames
+  when (n `elem` gnames) 
+    (throwError $ ElabError $ "nombre " ++ n ++ " repetido")
   let t' = foldr  SLam (SAnn t ty) args
   rt <- elab t'
+  ctx <- get
   put ctx { global = n : global ctx }
   return (Decl n rt)
+
+elabData :: MonadElab m => SDataDecl -> m DataDecl
+elabData (DataDecl n sty scons) = do
+  gnames <- globalNames
+  when (n `elem` gnames)
+    (throwError $ ElabError $ "datatype " ++ n ++ " ya existe")
+  ty <- elabType sty
+  ctx <- get
+  put ctx { datatypes = n : datatypes ctx }
+  DataDecl n ty <$> mapM elabCons scons
+
+
+elabCons :: MonadElab m => SConsDecl -> m ConsDecl
+elabCons (ConsDecl n sty) = do
+  ctx <- get
+  when (n `elem` map conName (cons ctx))
+    (throwError $ ElabError $ "constructor " ++ n ++ " ya existe")
+  ty <- elabType sty
+  return (ConsDecl n ty)
+
 
 elab :: MonadElab m => STerm -> m Term
 elab (Lit n)

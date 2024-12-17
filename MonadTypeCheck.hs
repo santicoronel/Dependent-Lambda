@@ -120,6 +120,11 @@ getDataDef d = do
     Just dd -> return dd
     Nothing -> throwError (EDataNoDef d)
 
+addDataDef :: MonadTypeCheck m => DataDef -> m ()
+addDataDef d = do
+  ctx <- get
+  put ctx { datadefs = d : datadefs ctx }
+
 unifyVars :: MonadTypeCheck m => Int -> Int -> m ()
 unifyVars x y = do
   ctx <- get

@@ -2,20 +2,41 @@ module Lang where
 
 type Name = String
 
-type SProgram = [SDecl]
-type Program = [Decl]
+data Definition decl daty = PDecl decl | PData daty 
+
+type SProgram = [Definition SDecl SDataDecl]
+type Program = [Definition Decl DataDef]
 
 data Decl = Decl {
   declName :: Name,
   declDef :: Term
 } deriving Show
 
+-- TODO let rec
 data SDecl = SDecl {
   sdeclName :: Name,
   sdeclArgs :: [SArg],
   sdeclType :: SType,
   sdeclDef :: STerm
 } deriving Show
+
+
+data DataDecl' ty cons = DataDecl {
+  dataDeclName :: Name,
+  dataDeclType :: ty,
+  dataDeclCons :: [cons]
+}
+type SDataDecl = DataDecl' SType SConsDecl 
+type DataDecl = DataDecl' Type ConsDecl
+
+data ConsDecl' ty = ConsDecl {
+  consDeclName :: Name,
+  consDeclType :: ty
+}
+
+type SConsDecl = ConsDecl' SType
+type ConsDecl = ConsDecl' Type
+
 
 -- TODO type alias
 data Var =
@@ -75,9 +96,9 @@ instance Show DataType where
 -- mejor: chequeo sintactico, no permitir cosa rara
 data DataDef = DataDef { 
   dataName :: Name,
-  dataSort :: Sort,
   dataParams :: [Type],
   dataType :: Type,
+  dataSort :: Sort,
   dataArity :: Int,
   dataCons :: [Constructor]
 } deriving Show
@@ -106,6 +127,7 @@ type ElimBranch = ElimBranch' ConHead Term
 type SElimBranch = ElimBranch' Name STerm
 
 
+-- TODO multiargs
 data STerm =
   Lit Int
   | SZero
@@ -130,6 +152,7 @@ infixl 9 :@:
 -- tendria que tener un open/close especial
 -- pero no tendria q consultar siempre el entorno
 
+-- TODO let
 data Term =
   V Var
   | Lam Arg Term

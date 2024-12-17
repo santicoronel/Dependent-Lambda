@@ -11,6 +11,7 @@ import Context
 import Error
 import Termination
 import Reduce ( reduce, reduceType )
+import Datatype
 
 import Options.Applicative
     ( argument, fullDesc, idm, info, str, execParser )
@@ -22,9 +23,11 @@ import Control.Monad.Except
 import Control.Monad.State
 
 
+type RunTypeCheck = ExceptT TypeError (StateT Context IO)
+
 instance MonadElab (ExceptT ElabError (State ElabContext))
 
-instance MonadTypeCheck (ExceptT TypeError (StateT Context IO))
+instance MonadTypeCheck RunTypeCheck
 
 main :: IO ()
 main = execParser (info (argument str idm) fullDesc) >>= go
@@ -37,29 +40,33 @@ main = execParser (info (argument str idm) fullDesc) >>= go
         Just sp -> case runElab sp of
           (Left e, ctx) -> case e of
             ElabError e -> putStrLn e
-          (Right p, _) -> case runTerminationCheck p of
+          (Right p, _) -> case runTerminationCheck (onlyDecls p) of
             TE e _ -> putStrLn $ "termination error: " ++ show e
             TOK -> runProgram p
 
+onlyDecls :: Program -> [Decl]
+onlyDecls [] = []
+onlyDecls (PDecl d : p) = d : onlyDecls p
+onlyDecls (PData _ : p) = onlyDecls p
 
 runElab :: SProgram -> (Either ElabError Program, ElabContext)
 runElab p = runState (runExceptT (elabProgram p)) emptyElabContext
 
-runTerminationCheck :: Program -> TChecked
-runTerminationCheck = foldMap tcheckDecl
-  where 
-    tcheckDecl d =
-      -- terminationCheckType (declType d) <>
-      terminationCheck (declDef d)  
+runTerminationCheck :: [Decl] -> TChecked
+runTerminationCheck = foldMap (terminationCheck . declDef)
+
 
 runProgram :: Program -> IO ()
 runProgram p = do
-  r <- runStateT (runExceptT (mapM_ runDecl p)) emptyContext
+  r <- runStateT (runExceptT (mapM_ runDef p)) emptyContext
   case r of
     (Left e, ctx) -> print e -- TODO frees
     (Right (), _) -> putStrLn "Todo OK"
   where
-    runDecl :: Decl -> ExceptT TypeError (StateT Context IO) () 
+    runDef :: Definition Decl DataDef -> RunTypeCheck ()
+    runDef (PDecl d) = runDecl d
+    runDef (PData d) = runData d
+    runDecl :: Decl -> RunTypeCheck ()
     runDecl d = do
       ty <- infer (declDef d)
       bindGlobal d ty
@@ -74,6 +81,11 @@ runProgram p = do
           print t
           putStrLn ":"
           print ty
+    runData :: DataDef -> RunTypeCheck ()
+    runData d = do
+      shouldBeType (dataType d)
+      addDataDef d
+      mapM_ (shouldBeType . conType) (dataCons d)
 
 loadFile :: FilePath -> IO (Maybe SProgram)
 loadFile f = do

@@ -193,8 +193,27 @@ decl = do
   t <- sterm
   return (SDecl n args ty t)
 
+
+datacons :: P SConsDecl
+datacons =
+  ConsDecl
+  <$> name
+  <* reservedOp ":"
+  <*> stype
+
+datadecl :: P SDataDecl
+datadecl =
+  DataDecl
+  <$ reserved "data"
+  <*> name
+  <* reservedOp ":"
+  <*> stype
+  <*> braces (semiSep datacons)  
+
+
 program :: P SProgram
-program = many decl
+program = many def
+  where def = (PDecl <$> decl) <|> (PData <$> datadecl)
 
 parse :: String -> STerm
 parse s = case runP sterm s "" of
