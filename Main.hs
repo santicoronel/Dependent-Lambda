@@ -40,6 +40,7 @@ main = execParser (info (argument str idm) fullDesc) >>= go
         Just sp -> case runElab sp of
           (Left e, ctx) -> case e of
             ElabError e -> putStrLn e
+            DataError e -> putStrLn e
           (Right p, _) -> case runTerminationCheck (onlyDecls p) of
             TE e _ -> putStrLn $ "termination error: " ++ show e
             TOK -> runProgram p

@@ -60,7 +60,7 @@ elabData :: MonadElab m => SDataDecl -> m DataDecl
 elabData (DataDecl n sty scons) = do
   gnames <- globalNames
   when (n `elem` gnames)
-    (throwError $ ElabError $ "datatype " ++ n ++ " ya existe")
+    (throwError $ ElabError $ "nombre " ++ n ++ " repetido")
   ty <- elabType sty
   ctx <- get
   put ctx { datatypes = n : datatypes ctx }
@@ -69,9 +69,9 @@ elabData (DataDecl n sty scons) = do
 
 elabCons :: MonadElab m => SConsDecl -> m ConsDecl
 elabCons (ConsDecl n sty) = do
-  ctx <- get
-  when (n `elem` map conName (cons ctx))
-    (throwError $ ElabError $ "constructor " ++ n ++ " ya existe")
+  gnames <- globalNames
+  when (n `elem` gnames )
+    (throwError $ ElabError $ "nombre " ++ n ++ " repetido")
   ty <- elabType sty
   return (ConsDecl n ty)
 

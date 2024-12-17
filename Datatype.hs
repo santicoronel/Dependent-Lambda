@@ -16,7 +16,7 @@ checkData :: DataDecl -> Either DataError DataDef
 checkData (DataDecl n ty cs) = do
   (s, ar) <- checkDataType ty
   when (duplicateName (map consDeclName cs))
-    (throwError $ DError $ "nombre de constructor: " ++ n ++ " duplicado") 
+    (throwError $ DError $ "nombre de constructor " ++ n ++ " duplicado") 
   cs <- mapM (checkDataCons n ar) cs
   return (DataDef n [] ty s ar cs)
 
