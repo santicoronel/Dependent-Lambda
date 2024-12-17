@@ -43,7 +43,7 @@ main = execParser (info (argument str idm) fullDesc) >>= go
 
 
 runElab :: SProgram -> (Either ElabError Program, ElabContext)
-runElab p = runState (runExceptT (mapM elabDecl p)) emptyElabContext
+runElab p = runState (runExceptT (elabProgram p)) emptyElabContext
 
 runTerminationCheck :: Program -> TChecked
 runTerminationCheck = foldMap tcheckDecl

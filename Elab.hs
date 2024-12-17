@@ -30,10 +30,12 @@ lookupWith x (b : bs) gn gt
   | x == gn b = Just (gt b)
   | otherwise = lookupWith x bs gn gt
 
-duplicateName :: Eq a => [a] -> Bool
-duplicateName xs = not $ all unary $ group xs
-  where unary [_] = True
-        unary _ = False
+elabProgram :: MonadElab m => SProgram -> m Program
+elabProgram = mapM go
+  where
+    go sd = do
+      modify (\ctx -> ctx { local = [] })
+      elabDecl sd
 
 elabDecl :: MonadElab m => SDecl -> m Decl
 elabDecl (SDecl n args ty t) = do
