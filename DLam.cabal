@@ -22,6 +22,7 @@ executable DLam
       Substitution
       Elab
       Common
+      Datatype
     ghc-options: 
         -threaded 
         -rtsopts 
