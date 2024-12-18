@@ -29,6 +29,8 @@ instance MonadElab (ExceptT ElabError (State ElabContext))
 
 instance MonadTypeCheck RunTypeCheck
 
+-- NICETOHAVE cargar muchos archivos
+
 main :: IO ()
 main = execParser (info (argument str idm) fullDesc) >>= go
   where

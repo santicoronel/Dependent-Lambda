@@ -19,10 +19,12 @@ data TypeError =
   | EDataNoDef Name
   | ENotData Type
   | ENumberOfArgs ConHead
-  | ENotUnif
-  | EIncompleteBot
   | EUnifiable
+  | ENotUnif
+  | EUnifError
+  | EIncompleteBot
   | ENeq Term Term
   | EGlobalEx Name
   | ECheckFun Term
+  | EWrongCons ConHead
   deriving Show

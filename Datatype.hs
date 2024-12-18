@@ -10,6 +10,9 @@ import Control.Monad.Except
 -- MAYBE parsear solo definiciones validas
 -- Tendria q pensar que quiero parsear exactamente
 
+-- TODO chequear sorts
+-- TODO data params
+
 data DataError = DError String
 
 checkData :: DataDecl -> Either DataError DataDef

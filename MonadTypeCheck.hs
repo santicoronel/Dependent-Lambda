@@ -7,7 +7,7 @@ import Context
 import Error
 import UnionFind
 import Common
-
+import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -17,7 +17,8 @@ import Data.List.Extra ( (!?) )
 class (
   Monad m,
   MonadError TypeError m,
-  MonadState Context m
+  MonadState Context m,
+  MonadIO m
   ) => MonadTypeCheck m where
 
 
@@ -58,14 +59,18 @@ bindGlobal (Decl n t) ty = do
   let gb = GBinder n ty t
   put (ctx { global = gb : global ctx })
 
-bindArg :: MonadState Context m => Name -> Type -> m Int
-bindArg x ty = do
-  i <- newVar x
+addBinder :: MonadState Context m => Int -> Type -> m ()
+addBinder x ty = do
   ctx <- get
   let lc = local ctx
       uf = unif ctx
-      bx = LBinder i ty
-  put (ctx { local = bx : lc, unif = insert uf i })
+      bx = LBinder x ty
+  put (ctx { local = bx : lc, unif = insert uf x })
+
+bindArg :: MonadState Context m => Name -> Type -> m Int
+bindArg x ty = do
+  i <- newVar x
+  addBinder i ty
   return i
 
 -- TODO esto es horrible

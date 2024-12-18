@@ -76,11 +76,11 @@ sequal :: MonadTypeCheck m => Sort -> Sort -> m ()
 sequal s@(Set i) t@(Set j) =
   when (i /= j) (throwError (ENeq (Sort s) (Sort t)))
 
--- asumo que tipa, y que las branches estan correctas
 bequalV :: MonadTypeCheck m => Int -> Int -> [ElimBranch] -> [ElimBranch] -> m ()
 bequalV x y (ElimBranch c a1 r1 : bs) b2 =
-  let (ElimBranch _ a2 r2, b2') = findBranch c b2
-  in  doAndRestore (do
+  case findBranch c b2 of
+    Nothing -> bequalV x y bs b2
+    Just (ElimBranch _ a2 r2, b2') -> doAndRestore (do
         -- TODO por que uso dos listas de variables??
         is1 <- mapM newVar a1
         is2 <- mapM newVar a2
@@ -93,28 +93,20 @@ bequalV x y (ElimBranch c a1 r1 : bs) b2 =
             r2' = openMany is2 r2
         equal' r1' r2')
       >> bequalV x y bs b2'
-bequalV x y [] [] = return ()
-bequalV x y bs b2 = error $ "Equality: error en branches " ++ show bs ++ " = " ++ show b2
+bequalV x y [] _ = return ()
 
 bequal :: MonadTypeCheck m => [ElimBranch] -> [ElimBranch] -> m ()
 bequal (b1 : bs1) bs2 =
-  let (b2, bs2') = findBranch (elimCon b1) bs2
-  in  doAndRestore (do
-    is1 <- mapM newVar (elimConArgs b1)
-    is2 <- mapM newVar (elimConArgs b2)
-    zipWithM_ unifyVars is1 is2
-    let r1 = openMany is1 (elimRes b1)
-        r2 = openMany is2 (elimRes b2)
-    equal' r1 r2
-    )
-    >> bequal bs1 bs2'
+  case findBranch (elimCon b1) bs2 of
+    Nothing -> bequal bs1 bs2
+    Just (b2, bs2') -> doAndRestore (do
+      is1 <- mapM newVar (elimConArgs b1)
+      is2 <- mapM newVar (elimConArgs b2)
+      zipWithM_ unifyVars is1 is2
+      let r1 = openMany is1 (elimRes b1)
+          r2 = openMany is2 (elimRes b2)
+      equal' r1 r2
+      )
+      >> bequal bs1 bs2'
 bequal [] [] = return ()
 bequal bs b2 = error $ "Equality: error en branches " ++ show bs ++ " = " ++ show b2
-
-findBranch :: ConHead -> [ElimBranch] -> (ElimBranch, [ElimBranch])
-findBranch c [] = error "findBranch"
-findBranch c (b : bs)
-  | elimCon b == c = (b, bs)
-  | otherwise = 
-    let (b', bs') = findBranch c bs
-    in  (b', b : bs')

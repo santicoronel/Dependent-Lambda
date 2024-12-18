@@ -1,6 +1,7 @@
 module Substitution where
 
 import Lang
+import Data.List (inits)
 
 varChanger :: (Int -> Int -> Term)
            -> (Int -> Int -> Term)
@@ -57,6 +58,17 @@ openMany is t =
   let len = length is
   in  foldl (flip $ uncurry openi) t (zip [len - j | j <- [1..len]] is)
 
+openManyType :: [Int] -> Type -> Type
+openManyType is = Type . openMany is . unType
+
+openManyTerms :: [Int] -> [Term] -> [Term]
+openManyTerms is ts
+  | length is /= length ts = error "openManyTerms"
+  | otherwise = zipWith openMany (inits is) ts
+
+openManyTypes :: [Int] -> [Type] -> [Type]
+openManyTypes is = map Type . openManyTerms is . map unType
+
 closei :: Int -> Int -> Term -> Term
 closei i x = varChanger (\_ j -> V (Bound j)) lcl
   where
@@ -83,6 +95,9 @@ closeMany :: [Int] -> Term -> Term
 closeMany is t =
   let len = length is
   in  foldl (flip $ uncurry closei) t (zip [len - j | j <- [1..len]] is)
+
+closeManyType :: [Int] -> Type -> Type
+closeManyType is = Type . closeMany is . unType
 
 subst :: Term -> Term -> Term
 subst u = varChanger bnd (\_ n -> V (Free n))

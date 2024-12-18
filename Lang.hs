@@ -1,4 +1,5 @@
 module Lang where
+import Common
 
 type Name = String
 
@@ -92,8 +93,7 @@ instance Show DataType where
   show (Eq t u) = "(" ++ show t ++ " = " ++ show u ++ ")"
   show (DataT dn) = dn
 
--- TODO tipo debe estar reducido
--- mejor: chequeo sintactico, no permitir cosa rara
+-- MAYBE meter Eq t u aca dentro
 data DataDef = DataDef { 
   dataName :: Name,
   dataParams :: [Type],
@@ -106,8 +106,6 @@ data DataDef = DataDef {
 instance Eq DataDef where
   d == e = dataName d == dataName e
 
--- TODO tipo debe estar reducido
--- mejor: chequeo sintactico, simil data
 data Constructor = Constructor {
   conName :: Name,
   conType :: Type,
@@ -188,12 +186,68 @@ bound = V . Bound
 eqTy :: Term -> Term -> Type
 t `eqTy` u = Type (Data (Eq t u))
 
+-- TODO mejores nombres
+
 consArgTypes :: ConHead -> [Type]
 consArgTypes Zero = []
 consArgTypes Suc = [natTy]
 consArgTypes Refl = []
-consArgTypes (DataCon c) = getArgsTypes (unType $ conType c)
+consArgTypes (DataCon c) = map argType $ snd $ dataConsArgTypes c
 
-getArgsTypes :: Term -> [Type]
-getArgsTypes (Pi arg ty) = argType arg : getArgsTypes (unType ty)
-getArgsTypes ty = [Type ty]
+dataConsArgTypes :: Constructor -> (Type, [Arg])
+dataConsArgTypes = getArgsTypes . unType . conType
+
+getArgsTypes :: Term -> (Type, [Arg])
+getArgsTypes (Pi arg ty) =
+  let (rty, as) = getArgsTypes (unType ty) 
+  in (rty, arg : as)
+getArgsTypes ty = (Type ty, [])
+
+inspectData :: Term -> Maybe (DataType, [Term])
+inspectData = go []
+  where
+    go as (Data dt) = Just (dt, as)
+    go as (t :@: u) = go (u : as) t
+    go _ _ = Nothing
+
+findBranch :: ConHead -> [ElimBranch] -> Maybe (ElimBranch, [ElimBranch])
+findBranch = findWith elimCon id
+
+findAllBranches :: [ConHead] -> [ElimBranch] -> Either ElimBranch [(ConHead, Maybe ElimBranch)]
+findAllBranches _ [] = Right []
+findAllBranches [] (b : _) = Left b
+findAllBranches (c : cs) bs = case findBranch c bs of
+    Nothing -> ((c, Nothing) :) <$> findAllBranches cs bs
+    Just (b, bs') -> ((c, Just b) :) <$> findAllBranches cs bs'
+
+
+freeIn :: Int -> Term -> Bool
+freeIn x t = Free x `occursIn` t
+
+occursIn :: Var -> Term -> Bool
+occursIn v (V u) = v == u
+occursIn v (Lam arg t) =
+  occursInType v (argType arg) || occursIn (shift 1 v) t
+occursIn v (t :@: u) = occursIn v t || occursIn v u
+occursIn v (Elim t bs) = or (occursIn v t : map (occursInBranch v) bs)
+occursIn v (Fix _ arg ty t) =
+  occursInType v (argType arg)
+  || occursInType (shift 1 v) ty
+  || occursIn (shift 2 v) t
+occursIn v (Pi arg ty) =
+  occursInType v (argType arg)
+  || occursInType (shift 1 v) ty
+occursIn v (Ann t ty) =
+  occursIn v t
+  || occursInType v ty  
+occursIn _ _ = False
+
+occursInType :: Var -> Type -> Bool
+occursInType v = occursIn v . unType
+
+occursInBranch :: Var -> ElimBranch -> Bool
+occursInBranch v b = occursIn (shift (length $ elimConArgs b) v) (elimRes b)
+
+shift :: Int -> Var -> Var
+shift i (Bound j) = Bound (j + 1)
+shift _ v = v

@@ -195,7 +195,7 @@ elabBranch (ElimBranch nc as t) = do
       throwError (ElabError $ "constructor nc " ++ nc ++ " not defined")
     Just c -> do
       unless (length as == conArity c) $
-        throwError (ElabError $ "too many cases for " ++ nc)
+        throwError (ElabError $ "wrong number of cases for " ++ nc)
       put ctx { local = reverse as ++ local ctx }
       t' <- elab t
       put ctx

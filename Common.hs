@@ -29,6 +29,14 @@ deleteWith gn x (b : bs)
   | x == gn b = Just bs
   | otherwise = (b :) <$> deleteWith gn x bs
 
+findWith :: Eq i => (a -> i) -> (a -> b) -> i -> [a] -> Maybe (b, [a])
+findWith _ _ _ [] = Nothing
+findWith name get x (y : ys)
+  | name y == x = Just (get y, ys)
+  | otherwise = do
+    (x', ys') <- findWith name get x ys
+    return (x', y : ys) 
+
 ------------- MonadState -----------------------------------------
 doAndRestore :: MonadState s m => m a -> m a
 doAndRestore m = do

@@ -1,0 +1,76 @@
+
+data N : Set {
+    z : N ;
+    s : (_:N) -> N
+}
+
+let sum : (m n : N) -> N :=
+fix sum (m n : N) : N . elim m {
+    z := n ;
+    s m' := s (sum m' n)
+}
+
+let nat2n : (_:Nat) -> N := fix nat2n (m : Nat) : N . elim m {
+    zero := z ;
+    suc n := s (nat2n n)
+}
+
+let n2nat : (_:N) -> Nat := fix n2nat (m : N) : Nat . elim m {
+    z := zero ;
+    s n := suc (n2nat n)
+}
+
+let cong (A B : Set) (x y : A) (f : (x : A) -> B) (r : x = y) : f x = f y :=
+elim r {
+    refl := refl
+}
+
+let natison : (m : Nat) -> n2nat (nat2n m) = m :=
+fix natison (m : Nat) : n2nat (nat2n m) = m . elim m {
+    zero := refl ;
+    suc n := cong Nat Nat (n2nat (nat2n n)) n suc (natison n)
+} 
+
+
+data eqnat : (_ : Nat) -> (_:Nat) -> Set {
+    zeqz : eqnat 0 0 ;
+    seqs : (m n : Nat) -> (_:eqnat m n) -> eqnat (suc m) (suc n)
+}
+
+let subst (A : Set) (P : (_ : A) -> Set)
+        (x y : A) (r : x = y)
+        (p : P x) : P y := elim r {
+    refl := p
+}
+
+
+let eqnat2eq : (m n : Nat) -> (r : eqnat m n) -> m = n :=
+fix eqnat2eq (m n : Nat) : (r : eqnat m n) -> m = n .
+\(r : eqnat m n). elim m {
+    zero := elim n {
+        zero := elim r {
+            //zeqz := refl
+        };
+        suc n' := refl //elim r {} 
+    };
+    suc m' := refl
+}
+/*
+let eqnat2eq : (m n : Nat) -> (r : eqnat m n) -> m = n :=
+fix eqnat2eq (m n : Nat) : (r : eqnat m n) -> m = n .
+\(r : eqnat m n). elim m {
+    zero := elim n {
+        zero := elim r {
+            //zeqz := refl
+        };
+        suc n' := refl // elim r {} 
+    };
+    suc m' := elim n {
+        zero := elim r {};
+        suc n' := elim r {
+            seqs m1 n1 eq' := eqnat2eq m' n' eq'
+        }
+    }
+}*/
+
+//let main : Nat := n2nat (sum (nat2n 3) (nat2n 4))

@@ -14,23 +14,36 @@ import Data.Maybe ( fromMaybe )
 
 -- NICETOHAVE hacer unificacion mas piola
 
-unifyTerms :: MonadTypeCheck m => Term -> Term -> m ()
+-- TODO revisar (y quizas hacer mejor)
+
+
+unifyTerms :: MonadTypeCheck m => Term -> Term -> m Bool
 unifyTerms t u = do
   nft <- reduceNF t
   nfu <- reduceNF u
+  liftIO $ print nft >> print nfu >> putStrLn "" 
   go nft nfu
   where
     go t1@(V (Free x)) t2@(V (Free y)) = do
       ctx <- get
       unifyVars x y
+      return True
+    go (V (Free x)) t =
+      if x `freeIn` t
+        then return False
+        else bindPattern x t >> return True
+    go t (V (Free x)) =
+      if x `freeIn` t
+        then return False
+        else bindPattern x t >> return True
     go t u = case (inspectCons t, inspectCons u) of
       (Just (ct, at), Just (cu, au)) ->
         if ct == cu
           then if length at == length au
-            then zipWithM_ unifyTerms at au
+            then and <$> zipWithM unifyTerms at au
             else error "unifyTerms: type error"
-          else throwError ENotUnif
-      _ -> return ()
+          else return False
+      _ -> error (show t ++ "  " ++ show u) >> throwError EUnifError
 
 
 inspectCons :: Term -> Maybe (ConHead, [Term])
@@ -40,9 +53,5 @@ inspectCons = go []
     go as (t :@: u) = go (u : as) t
     go _ _ = Nothing
 
-notUnifiable :: MonadTypeCheck m => Term -> Term -> m ()
-notUnifiable t u = catchError
-    (doAndRestore (unifyTerms t u >> throwError EUnifiable))
-    (\e -> case e of
-      ENotUnif -> return ()
-      _ -> throwError e)
+notUnifiable :: MonadTypeCheck m => Term -> Term -> m Bool
+notUnifiable t u = not <$> unifyTerms t u

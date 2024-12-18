@@ -12,6 +12,7 @@ import Common
 
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Monad.Extra (whenM, ifM, unlessM)
 
 
 infer :: MonadTypeCheck m => Term -> m Type
@@ -56,7 +57,7 @@ infer (Pi arg ty) = doAndRestore (do
   )
 infer (Sort (Set i)) = return (set (i + 1))
 infer (Ann t tt) = do
-  shouldBeType tt 
+  shouldBeType tt
   check t tt
   return tt
 
@@ -83,17 +84,18 @@ inferData (DataT dn) = do
   dd <- getDataDef dn
   return (dataType dd)
 
+-- TODO bindear variable
 inferElim :: MonadTypeCheck m => Term -> [ElimBranch] -> m Type
 inferElim t bs = do
   tt <- infer t
   tt' <- reduceType tt
-  case unType tt' of
-    Data dt -> inferElim' dt bs
-    _ -> throwError (ENotData tt')
+  case inspectData (unType tt') of
+    Just (dt, as) -> inferElim' dt as bs
+    Nothing -> throwError (ENotData tt')
 
-inferElim' :: MonadTypeCheck m => DataType -> [ElimBranch] -> m Type
+inferElim' :: MonadTypeCheck m => DataType -> [Term] -> [ElimBranch] -> m Type
 -- NICETOHAVE tratar de inferir ambas branches
-inferElim' Nat bs = doAndRestore (do
+inferElim' Nat [] bs = doAndRestore (do
   (zb, sb) <- casesNat bs
   ty <- infer (elimRes zb)
   let [n] = elimConArgs sb
@@ -102,21 +104,55 @@ inferElim' Nat bs = doAndRestore (do
   check sr ty
   return ty
   )
-inferElim' (Eq t u) bs = case bs of
+inferElim' (Eq t u) [] bs = case bs of
   -- aca deberia fallar primero si son unificables (supongo?)
   [] -> throwError EIncompleteBot
   [ElimBranch Refl [] r] -> doAndRestore (do
-    unifyTerms t u
-    infer r)
+    ifM (unifyTerms t u)
+      (infer r)
+      (throwError ENotUnif)
+    )
   [ElimBranch Refl _ _] -> error "typecheck: illformed branch"
   _ -> throwError EManyCases
-inferElim' (DataT d) bs = do
+inferElim' (DataT d) as bs = do
   dd <- getDataDef d
-  inferElimDataT dd bs
-  where
-    -- TODO
-    inferElimDataT :: MonadTypeCheck m => DataDef -> [ElimBranch] -> m Type
-    inferElimDataT = undefined
+  inferElimDataT dd as bs
+inferElim' _ _ _ = error "typerror in inferElim"
+
+-- TODO
+inferElimDataT :: MonadTypeCheck m => DataDef -> [Term] -> [ElimBranch] -> m Type
+inferElimDataT dd as bs =
+  case findAllBranches (map DataCon $ dataCons dd) bs of
+    Left b -> throwError (EWrongCons (elimCon b))
+    Right ms -> inferBranches dd as ms
+
+inferBranches :: MonadTypeCheck m => DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> m Type
+inferBranches _ _ [] = throwError EIncompleteBot
+inferBranches dd as ((DataCon c, mb) : ms) = case mb of
+  Nothing -> throwError EIncompleteBot
+  -- NICETOHAVE tratar de inferir todas hasta q sea exitoso
+  -- tambien puedo poner las no vacias primero
+  Just b -> do
+    ty <- inferBranch dd as b
+    checkBranches dd as ms ty
+    return ty
+
+inferBranch :: MonadTypeCheck m => DataDef -> [Term] -> ElimBranch -> m Type
+inferBranch dd as b = case elimCon b of
+  DataCon c -> doAndRestore (do
+    let (_, args) = getArgsTypes (unType $ dataType dd)
+    is <- mapM (newVar . argName) args
+    let tys = openManyTerms is (map (unType . argType) args)
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    unless ru (throwError ENotUnif)
+    -----------------------------------------------------------
+    let tys = consArgTypes (DataCon c)
+    is <- mapM newVar (elimConArgs b)
+    let tys' = openManyTypes is tys
+    zipWithM_ addBinder is tys'
+    infer (openMany is (elimRes b))
+    )
+  c -> throwError (EWrongCons c)
 
 
 inferSort :: MonadTypeCheck m => Type -> m Sort
@@ -133,7 +169,7 @@ check (Lam arg t) ty = doAndRestore (do
   ty' <- reduceType ty
   case unType ty' of
     Pi piarg pity -> do
-      argType arg `tequal` argType piarg 
+      argType arg `tequal` argType piarg
       i <- bindArg (argName arg) (argType piarg)
       check (open i t) (openType i pity)
     _ -> throwError $ ECheckFun (Lam arg t)
@@ -154,24 +190,41 @@ checkCon c ty = do
   tt <- infer (Con c)
   ty `tequal` tt
 
--- NICETOHAVE manejar otro caso ademas de variables
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
 checkElim (V (Free x)) bs ty = do
   tt <- getLocalType x
   tt' <- reduceType tt
-  case unType tt' of
-    Data d -> checkElim' x d bs ty
+  case inspectData (unType tt') of
+    Just (dt, as) -> checkElim' x dt as bs ty
     _ -> throwError (ENotData tt')
--- TODO aca perdemos demasiada info
 checkElim t bs ty = do
-  -- NICETOHAVE hacer esto menos choto
+  -- NICETOHAVE hacer esto menos croto
   let bs' = map (\b -> b { elimRes = Ann (elimRes b) ty }) bs
   et <- inferElim t bs'
   et `tequal` ty
 
-checkElim' :: MonadTypeCheck m => Int -> DataType -> [ElimBranch] -> Type ->  m ()
+checkBranches :: MonadTypeCheck m =>
+  DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
+checkBranches dd as ms ty = mapM_ (flip (checkBranch dd as) ty) ms
+
+checkBranch :: MonadTypeCheck m =>
+  DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
+checkBranch dd as (DataCon c, mb) ty = case mb of
+  Nothing -> doAndRestore (do
+    let (_, args) = getArgsTypes (unType $ dataType dd)
+    is <- mapM (newVar . argName) args
+    let tys = openManyTerms is (map (unType . argType) args)
+    -- ver si hay una mejor alternativa a foldM
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    when ru $ throwError EUnifiable
+    )
+  Just b -> do
+    et <- inferBranch dd as b
+    et `tequal` ty
+
+checkElim' :: MonadTypeCheck m => Int -> DataType -> [Term] -> [ElimBranch] -> Type ->  m ()
 -- Nat
-checkElim' x Nat bs rty = do
+checkElim' x Nat [] bs rty = do
   (zb, sb) <- casesNat bs
   checkElimZero x (elimRes zb)
   let [n] = elimConArgs sb
@@ -186,25 +239,62 @@ checkElim' x Nat bs rty = do
     checkElimSuc x t n = doAndRestore (do
       i <- bindArg n natTy
       bindPattern x (suc (var i))
-      check (open i t) (openType i rty)
+      check (open i t) (openType x rty)
       )
 -- Eq
-checkElim' x (Eq t u) bs rty = case bs of
-  [] -> notUnifiable t u
+checkElim' x (Eq t u) [] bs rty = case bs of
+  [] -> doAndRestore $
+    whenM (unifyTerms t u) $ throwError EUnifiable
   [ElimBranch Refl [] r] -> doAndRestore (do
-    unifyTerms t u
+    unlessM (unifyTerms t u) (throwError ENotUnif)
     bindPattern x (Con Refl)
     check r rty)
   [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
   _ -> throwError EManyCases
 -- DataT
-checkElim' x (DataT d) bs rty = do
+checkElim' x (DataT d) as bs rty = do
   dd <- getDataDef d
-  checkElimDataT x dd bs rty
-  where
-    -- TODO
-    checkElimDataT :: MonadTypeCheck m => Int -> DataDef -> [ElimBranch] -> Type -> m ()
-    checkElimDataT = undefined
+  checkElimDataT x dd as bs rty
+checkElim' _ _ _ _ _ = error "typeerror in checkElim"
+
+checkElimDataT :: MonadTypeCheck m =>
+  Int -> DataDef -> [Term] -> [ElimBranch] -> Type -> m ()
+checkElimDataT x dd as bs ty =
+  case findAllBranches (map DataCon $ dataCons dd) bs of
+    Left b -> throwError (EWrongCons (elimCon b))
+    Right ms -> checkBranches' x dd as ms ty
+
+checkBranches' :: MonadTypeCheck m =>
+  Int -> DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
+checkBranches' x dd as ms ty = mapM_ (flip (checkBranch' x dd as) ty) ms
+
+checkBranch' :: MonadTypeCheck m =>
+  Int -> DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
+checkBranch' x dd as (DataCon c, mb) ty = case mb of
+  Nothing -> doAndRestore (do
+    let (_, args) = getArgsTypes (unType $ dataType dd)
+    is <- mapM (newVar . argName) args
+    let tys = openManyTerms is (map (unType . argType) args)
+    -- ver si hay una mejor alternativa a foldM
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    when ru $ throwError EUnifiable
+    )
+  Just b -> doAndRestore (do
+    let (_, args) = getArgsTypes (unType $ dataType dd)
+    is <- mapM (newVar . argName) args
+    let tys = openManyTerms is (map (unType . argType) args)
+    -- ver si hay una mejor alternativa a foldM
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    unless ru $ throwError ENotUnif
+    --------------------------------------------------------------------------
+    let tys = consArgTypes (DataCon c)
+    is <- mapM newVar (elimConArgs b)
+    let tys' = openManyTypes is tys
+    zipWithM_ addBinder is tys'
+    let consVal = foldl (:@:) (Con (DataCon c)) (map var is)
+    bindPattern x consVal
+    check (openMany is (elimRes b)) ty
+    )
 
 casesNat :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, ElimBranch)
 casesNat bs = do
