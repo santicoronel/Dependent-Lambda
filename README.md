@@ -7,6 +7,6 @@ along with their corresponding elimination rules (pattern matching) and primitiv
 with generalized inductive datatypes coming soon.  
 
 It aims to support indexed datatype elimination based on simple unification à la Agda.  
-Additionally, it would be beneficial to eventually add some form of meta-variable solving to support implicit arguments.  
+Additionally, it would be nice to eventually add some form of meta-variable solving to support implicit arguments.  
 
 Another possible extension could be multiple-argument recursion, either via straightforward sugaring or more involved termination checking.
