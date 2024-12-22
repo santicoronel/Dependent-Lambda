@@ -4,7 +4,7 @@ module Main where
 
 import Lang
 import Parse
-import Elab hiding ( global )
+import Elab hiding ( global, local )
 import MonadTypeCheck
 import TypeCheck
 import Context
@@ -63,7 +63,11 @@ runProgram :: Program -> IO ()
 runProgram p = do
   r <- runStateT (runExceptT (mapM_ runDef p)) emptyContext
   case r of
-    (Left e, ctx) -> print e -- TODO frees
+    (Left e, ctx) -> do
+      print e
+      let ns = names ctx
+          vs = zip [0..length ns - 1] (reverse ns)
+      print vs -- TODO frees
     (Right (), _) -> putStrLn "Todo OK"
   where
     runDef :: Definition Decl DataDef -> RunTypeCheck ()
