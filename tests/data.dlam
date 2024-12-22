@@ -26,22 +26,6 @@ let eq2eqnat (m n : Nat) (r : m = n) : eqnat m n := elim r {
     refl := eqnat_refl m
 }
 
-
-data lt : (_:Nat) -> (_:Nat) -> Set {
-    zlt : (n : Nat) -> lt 0 n ;
-    slt : (m n : Nat) -> (_:lt m n) -> lt (suc m) (suc n) 
-}
-
-let lt_0_1 : lt 0 1 := zlt 1
-
-let lt_2_4 : lt 2 4 := slt 1 3 (slt 0 2 (zlt 2))
-
-let lt_suc : (m : Nat) -> lt m (suc m) :=
-fix lt_suc (m : Nat) : lt m (suc m) . elim m {
-    zero := zlt 1 ;
-    suc m' := slt m' (suc m') (lt_suc m')
-}
-
 data List : (_:Set) -> Set {
     nil : (A : Set) -> List A ;
     cons : (A : Set) -> (_:A) -> (_:List A) -> List A
@@ -73,6 +57,11 @@ let inl1 : Either Nat Bot := left Nat Bot 1
 
 data Exists : (A : Set) -> (P : (_:A) -> Set) -> Set {
     ex : (A : Set) -> (P : (_:A) -> Set) -> (x : A) -> (p : P x) -> Exists A P 
+}
+
+data lt : (_:Nat) -> (_:Nat) -> Set {
+    zlt : (n : Nat) -> lt 0 n ;
+    slt : (m n : Nat) -> (_:lt m n) -> lt (suc m) (suc n) 
 }
 
 let ex_0_lt : Exists Nat (\(n : Nat). lt 0 n) :=
