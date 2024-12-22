@@ -140,14 +140,14 @@ inferBranches dd as ((DataCon c, mb) : ms) = case mb of
 inferBranch :: MonadTypeCheck m => DataDef -> [Term] -> ElimBranch -> m Type
 inferBranch dd as b = case elimCon b of
   DataCon c -> doAndRestore (do
-    let (_, args) = getArgsTypes (unType $ dataType dd)
-    is <- mapM (newVar . argName) args
-    let tys = openManyTerms is (map (unType . argType) args)
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    is <- mapM newVar (elimConArgs b)
+    let (cty, args) = dataConsArgTypes c
+        cty' = openMany is (unType cty)
+        (_, cas) = getArgs cty'
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
     unless ru (throwError ENotUnif)
     -----------------------------------------------------------
-    let tys = consArgTypes (DataCon c)
-    is <- mapM newVar (elimConArgs b)
+    let tys = map argType args
     let tys' = openManyTypes is tys
     zipWithM_ addBinder is tys'
     infer (openMany is (elimRes b))
@@ -191,17 +191,20 @@ checkCon c ty = do
   ty `tequal` tt
 
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
-checkElim (V (Free x)) bs ty = do
-  tt <- getLocalType x
-  tt' <- reduceType tt
-  case inspectData (unType tt') of
-    Just (dt, as) -> checkElim' x dt as bs ty
-    _ -> throwError (ENotData tt')
 checkElim t bs ty = do
-  -- NICETOHAVE hacer esto menos croto
-  let bs' = map (\b -> b { elimRes = Ann (elimRes b) ty }) bs
-  et <- inferElim t bs'
-  et `tequal` ty
+  t' <- reduce t
+  case t' of
+    (V (Free x)) -> do
+      tt <- getLocalType x
+      tt' <- reduceType tt
+      case inspectData (unType tt') of
+        Just (dt, as) -> checkElim' x dt as bs ty
+        _ -> throwError (ENotData tt')
+    _ -> do
+      -- NICETOHAVE hacer esto menos croto
+      let bs' = map (\b -> b { elimRes = Ann (elimRes b) ty }) bs
+      et <- inferElim t bs'
+      et `tequal` ty
 
 checkBranches :: MonadTypeCheck m =>
   DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
@@ -211,11 +214,12 @@ checkBranch :: MonadTypeCheck m =>
   DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
 checkBranch dd as (DataCon c, mb) ty = case mb of
   Nothing -> doAndRestore (do
-    let (_, args) = getArgsTypes (unType $ dataType dd)
+    let (cty, args) = dataConsArgTypes c
     is <- mapM (newVar . argName) args
-    let tys = openManyTerms is (map (unType . argType) args)
+    let cty' = openMany is (unType cty)
+        (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
     when ru $ throwError EUnifiable
     )
   Just b -> do
@@ -266,29 +270,31 @@ checkElimDataT x dd as bs ty =
 
 checkBranches' :: MonadTypeCheck m =>
   Int -> DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
-checkBranches' x dd as ms ty = mapM_ (flip (checkBranch' x dd as) ty) ms
+checkBranches' x dd as ms ty = do
+  mapM_ (flip (checkBranch' x dd as) ty) ms
 
 checkBranch' :: MonadTypeCheck m =>
   Int -> DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
 checkBranch' x dd as (DataCon c, mb) ty = case mb of
   Nothing -> doAndRestore (do
-    let (_, args) = getArgsTypes (unType $ dataType dd)
+    let (cty, args) = dataConsArgTypes c
     is <- mapM (newVar . argName) args
-    let tys = openManyTerms is (map (unType . argType) args)
+    let cty' = openMany is (unType cty)
+        (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
     when ru $ throwError EUnifiable
     )
   Just b -> doAndRestore (do
-    let (_, args) = getArgsTypes (unType $ dataType dd)
-    is <- mapM (newVar . argName) args
-    let tys = openManyTerms is (map (unType . argType) args)
+    is <- mapM newVar (elimConArgs b)
+    let (cty, args) = dataConsArgTypes c
+        cty' = openMany is (unType cty)
+        (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip tys as)
+    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
     unless ru $ throwError ENotUnif
     --------------------------------------------------------------------------
-    let tys = consArgTypes (DataCon c)
-    is <- mapM newVar (elimConArgs b)
+    let tys = map argType args
     let tys' = openManyTypes is tys
     zipWithM_ addBinder is tys'
     let consVal = foldl (:@:) (Con (DataCon c)) (map var is)

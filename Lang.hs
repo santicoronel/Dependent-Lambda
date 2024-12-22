@@ -188,6 +188,11 @@ t `eqTy` u = Type (Data (Eq t u))
 
 -- TODO mejores nombres
 
+getArgs :: Term -> (Term, [Term])
+getArgs = go []
+go as (t :@: u) = go (u : as) t
+go as f = (f, as)
+
 consArgTypes :: ConHead -> [Type]
 consArgTypes Zero = []
 consArgTypes Suc = [natTy]
@@ -214,8 +219,9 @@ findBranch :: ConHead -> [ElimBranch] -> Maybe (ElimBranch, [ElimBranch])
 findBranch = findWith elimCon id
 
 findAllBranches :: [ConHead] -> [ElimBranch] -> Either ElimBranch [(ConHead, Maybe ElimBranch)]
-findAllBranches _ [] = Right []
+findAllBranches [] [] = Right []
 findAllBranches [] (b : _) = Left b
+findAllBranches (c : cs) [] = ((c, Nothing) :) <$> findAllBranches cs []  
 findAllBranches (c : cs) bs = case findBranch c bs of
     Nothing -> ((c, Nothing) :) <$> findAllBranches cs bs
     Just (b, bs') -> ((c, Just b) :) <$> findAllBranches cs bs'
