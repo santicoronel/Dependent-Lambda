@@ -67,16 +67,14 @@ addBinder x ty = do
       bx = LBinder x ty
   put (ctx { local = bx : lc, unif = insert uf x })
 
-bindArg :: MonadState Context m => Name -> Type -> m Int
+bindArg :: (MonadState Context m, MonadIO m) => Name -> Type -> m Int
 bindArg x ty = do
   i <- newVar x
   addBinder i ty
   return i
 
--- TODO esto es horrible
--- mejor algo como bindFun / bindCall
-bindFun :: MonadState Context m => Name -> Type -> Term -> Arg -> Maybe Term -> m (Int, Int)
-bindFun f ty df arg dx = do
+bindFix :: MonadState Context m => Name -> Type -> Term -> Arg -> m (Int, Int)
+bindFix f ty df arg = do
   fi <- newVar f
   xi <- newVar (argName arg)
   ctx <- get
@@ -87,11 +85,22 @@ bindFun f ty df arg dx = do
       bdf = LDef fi df True
       bx = LBinder xi (argType arg)
       lc' = bx : bf : lc
-      ld' = case dx of
-        Nothing -> bdf : ld
-        Just d -> LDef xi d False : bdf : ld
-  put (ctx { local = lc', localDefs = ld' })
+  put (ctx { local = lc', localDefs = bdf : ld })
   return (fi, xi)
+
+bindRecDef :: MonadState Context m => Name -> Term -> m Int
+bindRecDef f ft = do
+  fi <- newVar f
+  ctx <- get
+  let lc = localDefs ctx
+  put (ctx { localDefs = LDef fi ft True : lc})
+  return fi
+
+bindLocalDef :: MonadState Context m => Name -> Term -> m Int
+bindLocalDef n t = do
+  i <- newVar n
+  bindPattern i t
+  return i
 
 bindLocal :: MonadState Context m => Name -> Type -> Term -> m Int
 bindLocal x ty d = do 

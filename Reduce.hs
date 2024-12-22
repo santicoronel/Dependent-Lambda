@@ -6,7 +6,16 @@ module Reduce (
 ) where
 
 import Lang
-import MonadTypeCheck
+import MonadTypeCheck (
+  MonadTypeCheck,
+  getLocalDef,
+  isRec,
+  getGlobalDef,
+  newVar,
+  bindLocalDef,
+  bindPattern,
+  bindRecDef
+  )
 import Substitution
 import Context ( freshVar )
 import Common
@@ -44,7 +53,7 @@ reduceNF t = seek [] t
     seek s (t :@: u) = seek (KArg u : s) t
     seek s (Elim t bs) = seek (KElim bs : s) t
     seek s (Pi arg ty) = do
-      i <- bindArg (argName arg) (argType arg)
+      i <- newVar (argName arg)
       ty' <- reduceNFType (openType i ty)
       destroy s (Pi arg (closeType i ty'))
     seek s (Ann t ty) = seek s t
@@ -53,7 +62,7 @@ reduceNF t = seek [] t
     destroy (KFun f : s) t = destroyFun s f t
     destroy (KArg t : s) u = case u of
       Lam arg a -> do
-        i <- bindLocal (argName arg) (argType arg) t
+        i <- bindLocalDef (argName arg) t
         seek s (open i a)
       Con _ -> destroy s (u :@: t)
       (_:@:_) -> destroy s (u :@: t)
@@ -67,12 +76,13 @@ reduceNF t = seek [] t
       Nothing -> destroy s (Elim t bs)
     destroy [] t = case t of
       Lam arg t -> doAndRestore (do
-        i <- bindArg (argName arg) (argType arg)
+        i <- newVar (argName arg)
         t' <- reduceNF (open i t)
         return (Lam arg $ close i t')
         )
       Fix f arg ty u -> doAndRestore (do
-        (fi, xi) <- bindFun f ty t arg Nothing
+        fi <- bindRecDef f t
+        xi <- newVar (argName arg)
         u' <- seek [] (open2 fi xi u)
         return (Fix f arg ty (close2 fi xi u'))
         )
@@ -81,27 +91,29 @@ reduceNF t = seek [] t
       (Data (Eq a b)) -> Data <$> (Eq <$> reduceNF a <*> reduceNF b)
       _ -> return t
 
-    destroyFun s (V (Free i)) t = do
+    destroyFun s (V (Free i)) u = do
       dx <- getLocalDef i
       case dx of
         Nothing -> do
-          t' <- reduceNF t
-          destroy s (V (Free i) :@: t')
-        Just (Fix f arg ty u) -> if isCons t
-          then destroy (KArg t : s) (Fix f arg ty u)
-          else destroy s (V (Free i) :@: t)
-        Just _ -> error "destroyFun: var no expandida"
+          -- puede q esto no haga falta
+          -- reducimos argumentos al final
+          u' <- reduceNF u
+          destroy s (V (Free i) :@: u')
+        Just t -> if isCons u
+          then destroy (KArg u : s) t
+          else destroy s (V (Free i) :@: u)
     destroyFun s t@(Fix f arg ty a) u = if isCons u
         then do
           -- MAYBE tratar a f como un lambda a partir de aca
           -- pero marcada como recursiva
           -- tendria q abrir `a` solo para f
-          (fi, xi) <- bindFun f ty t arg (Just u)
+          fi <- bindRecDef f t
+          xi <- bindLocalDef (argName arg) u
           a' <- seek s (open2 fi xi a)
           t' <- reduceNF t
           return (substFree fi t' a') -- esta bien esto??
-        else destroy s (Fix f arg ty a :@: u)
-    destroyFun s f t = destroy s (f :@: t)
+        else destroy s (t :@: u)
+    destroyFun s t u = destroy s (t :@: u)
 
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType (Type t) = Type <$> reduceNF t
@@ -113,7 +125,7 @@ reduceNFBranches = mapM reduceNFBranch
     reduceNFBranch b = doAndRestore (do
       let atys = consArgTypes (elimCon b)
       -- NICETOHAVE abstraer este patron
-      is <- zipWithM bindArg (elimConArgs b) atys
+      is <- mapM newVar (elimConArgs b)
       let res = openMany is (elimRes b)
       res' <- reduceNF res
       return b { elimRes = closeMany is res' }

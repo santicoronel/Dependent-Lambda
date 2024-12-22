@@ -75,7 +75,7 @@ runProgram p = do
       bindGlobal d ty
       ctx <- get
       -- MAYBE agrupar contexto global / local
-      put emptyContext 
+      put emptyContext
         { global = global ctx, datadefs = datadefs ctx }
       when (declName d == "main") $ do
         t <- reduce (declDef d)

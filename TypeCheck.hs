@@ -42,7 +42,7 @@ infer t@(Fix f arg ty u) = do
   -- MAYBE tratar a f como un lambda a partir de aca
   -- pero marcada como recursiva
   -- tendria q abrir `a` solo para f
-  (fi, xi) <- bindFun f ty t arg Nothing
+  (fi, xi) <- bindFix f ty t arg
   let ty' = openType xi ty
   shouldBeType ty'
   check (open2 fi xi u) ty'
