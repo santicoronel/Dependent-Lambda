@@ -36,7 +36,7 @@ openi i x = varChanger bnd (\_ n -> V (Free n))
     bnd d j
       | j < d + i = V (Bound j)
       | j == d + i = V (Free x)
-      | otherwise = error $ "open: bound fuera de rango: " ++ show j  
+      | otherwise = error $ "open: bound fuera de rango: " ++ show j
 
 open :: Int -> Term -> Term
 open = openi 0

@@ -24,6 +24,7 @@ data TypeError =
   | EUnifError
   | EIncompleteBot
   | ENeq Term Term
+  | ENeqBranch
   | EGlobalEx Name
   | ECheckFun Term
   | EWrongCons ConHead
