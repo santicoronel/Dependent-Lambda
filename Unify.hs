@@ -16,12 +16,13 @@ import Data.Maybe ( fromMaybe )
 
 -- TODO revisar (y quizas hacer mejor)
 
+-- TODO pensar en UnifError
+-- tiene sentido?? 
 
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m Bool
 unifyTerms t u = do
   nft <- reduceNF t
   nfu <- reduceNF u
-  liftIO $ print nft >> print nfu >> putStrLn "" 
   go nft nfu
   where
     go t1@(V (Free x)) t2@(V (Free y)) = do
@@ -43,7 +44,7 @@ unifyTerms t u = do
             then and <$> zipWithM unifyTerms at au
             else error "unifyTerms: type error"
           else return False
-      _ -> error (show t ++ "  " ++ show u) >> throwError EUnifError
+      _ -> throwError (EUnifError t u)
 
 
 inspectCons :: Term -> Maybe (ConHead, [Term])

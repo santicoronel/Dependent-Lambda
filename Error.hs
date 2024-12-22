@@ -21,7 +21,7 @@ data TypeError =
   | ENumberOfArgs ConHead
   | EUnifiable
   | ENotUnif
-  | EUnifError
+  | EUnifError Term Term
   | EIncompleteBot
   | ENeq Term Term
   | ENeqBranch
