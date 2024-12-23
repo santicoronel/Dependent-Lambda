@@ -141,7 +141,7 @@ data STerm =
   | SPi SArg SType
   | SSort SSort
   | SAnn STerm SType
-  deriving Show
+  deriving (Eq, Show)
 
 infixl 9 :@:
 

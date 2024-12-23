@@ -12,6 +12,7 @@ import Error
 import Termination
 import Reduce ( reduce, reduceType )
 import Datatype
+import Desugar
 
 import Options.Applicative
     ( argument, fullDesc, idm, info, str, execParser )
@@ -83,11 +84,19 @@ runProgram p = do
         { global = global ctx, datadefs = datadefs ctx }
       when (declName d == "main") $ do
         t <- reduce (declDef d)
+        ctx <- get
+        let ns = names ctx
+            dns = map dataName $ datadefs ctx
+            cns = concatMap (map conName . dataCons) (datadefs ctx)
+            reserved = dns ++ cns
+            st = desugar ns reserved t
+            -- creo q no hace falta names y reserved aca (no deberia haber frees)
+            sty = Type $ desugar [] [] (unType ty) 
         liftIO $ do
           putStrLn "main := "
-          print t
+          print st
           putStrLn ":"
-          print ty
+          print sty
     runData :: DataDef -> RunTypeCheck ()
     runData d = do
       shouldBeType (dataType d)

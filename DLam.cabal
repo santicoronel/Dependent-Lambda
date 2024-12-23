@@ -23,6 +23,8 @@ executable DLam
       Elab
       Common
       Datatype
+      PPrint
+      Desugar
     ghc-options: 
         -threaded 
         -rtsopts 
