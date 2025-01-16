@@ -13,6 +13,7 @@ import Termination
 import Reduce ( reduce, reduceType )
 import Datatype
 import Desugar
+import PPrint
 
 import Options.Applicative
     ( argument, fullDesc, idm, info, str, execParser )
@@ -94,9 +95,9 @@ runProgram p = do
             sty = Type $ desugar [] [] (unType ty) 
         liftIO $ do
           putStrLn "main := "
-          print st
+          putStrLn (ppTerm st)
           putStrLn ":"
-          print sty
+          putStrLn (ppType sty)
     runData :: DataDef -> RunTypeCheck ()
     runData d = do
       shouldBeType (dataType d)
