@@ -80,8 +80,7 @@ elab :: MonadElab m => STerm -> m Term
 elab (Lit n)
   | n >= 0 = return (iterate suc zero !! n)
   | otherwise = error "elab: negative integer"
-elab SZero = return zero
-elab SSuc = return (Lam (Arg "n" natTy) (suc (bound 0)))
+elab SSuc = return (Con Suc)
 elab SNat = return (Data Nat)
 elab SRefl = return refl
 elab (SEq t u) = do

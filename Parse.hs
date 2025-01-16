@@ -71,7 +71,7 @@ snat :: P STerm
 snat = reserved "Nat" >> return SNat
 
 szero :: P STerm
-szero = reserved "zero" >> return SZero
+szero = reserved "zero" >> return (Lit 0)
 
 ssuc :: P STerm
 ssuc = reserved "suc" >> return SSuc

@@ -128,7 +128,6 @@ type SElimBranch = ElimBranch' Name STerm
 -- TODO multiargs
 data STerm =
   Lit Int
-  | SZero
   | SSuc
   | SNat
   | SRefl
