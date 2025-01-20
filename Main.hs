@@ -90,14 +90,8 @@ runProgram p = do
             dns = map dataName $ datadefs ctx
             cns = concatMap (map conName . dataCons) (datadefs ctx)
             reserved = dns ++ cns
-            st = desugar ns reserved t
-            -- creo q no hace falta names y reserved aca (no deberia haber frees)
-            sty = Type $ desugar [] [] (unType ty) 
-        liftIO $ do
-          putStrLn "main := "
-          putStrLn (ppTerm st)
-          putStrLn ":"
-          putStrLn (ppType sty)
+            sd = desugarDecl (Decl (declName d) t) ty
+        liftIO $ putStrLn (ppDecl sd)
     runData :: DataDef -> RunTypeCheck ()
     runData d = do
       shouldBeType (dataType d)

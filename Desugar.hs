@@ -1,4 +1,4 @@
-module Desugar ( desugar ) where
+module Desugar ( desugar, desugarType, desugarDecl ) where
 
 import Lang
 import Substitution
@@ -10,6 +10,15 @@ data NamingContext = NContext {
   usedNames :: [Name],
   boundNames :: [Name]
 } deriving Show
+
+-- TODO agrupar lambdas
+desugarDecl :: Decl -> Type -> SDecl
+desugarDecl d ty = case desugar [] [] (declDef d) of
+  SLam arg t -> SDecl (declName d) [arg] (desugarType [] [] ty) t
+  t -> SDecl (declName d) [] (desugarType [] [] ty) t
+
+desugarType :: [Name] -> [Name] -> Type -> SType
+desugarType ns rs = Type . desugar ns rs . unType
 
 desugar :: [Name] -> [Name] -> Term -> STerm
 desugar ns rs t = evalState (go t) (NContext [] [])

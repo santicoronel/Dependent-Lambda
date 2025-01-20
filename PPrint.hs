@@ -28,9 +28,9 @@ import Prettyprinter
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
 constColor = annotate (color Red)
 opColor :: Doc AnsiStyle -> Doc AnsiStyle
-opColor = annotate (colorDull Green)
+opColor = annotate (color Green)
 keywordColor :: Doc AnsiStyle -> Doc AnsiStyle
-keywordColor = annotate (colorDull Green) -- <> bold
+keywordColor = annotate (color Blue)
 typeColor :: Doc AnsiStyle -> Doc AnsiStyle
 typeColor = annotate (color Blue <> italicized)
 typeOpColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -60,7 +60,7 @@ collectApp = go []
 
 collectPi :: STerm -> [Doc AnsiStyle]
 collectPi (SPi arg ty) = 
-  (arg2doc arg <> opColor (pretty "→")) : collectPi (unType ty)
+  (arg2doc arg <+> opColor (pretty "->")) : collectPi (unType ty)
 collectPi ty = [t2doc False ty]
 
 arg2doc :: SArg -> Doc AnsiStyle
@@ -73,16 +73,16 @@ ty2doc at = t2doc at . unType
 
 encloseBranches :: [Doc AnsiStyle] -> Doc AnsiStyle
 encloseBranches [] = lbrace <> rbrace
-encloseBranches bs = 
-  lbrace <>
-  vsep (map ((<> semi) . nest 4)  bs) <>
-  rbrace
+encloseBranches bs =
+  sep [lbrace
+      , nest 4 (vsep (map (<> semi)  bs))
+      , rbrace]
 
 branch2doc :: SElimBranch -> Doc AnsiStyle
 branch2doc b =
-  sep [ pretty (elimCon b) <>
-        sep (map pretty (elimConArgs b)) <>
-        opColor (pretty "≔"), t2doc False (elimRes b)]
+  sep [ pretty (elimCon b) <+>
+        sep (map pretty (elimConArgs b)) <+>
+        opColor (pretty ":="), t2doc False (elimRes b)]
 
 -- | Pretty printing de términos (Doc)
 t2doc :: Bool     -- Debe ser un átomo? 
@@ -98,10 +98,10 @@ t2doc at (SEq t u) =
 t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
   parenIf at $
-  sep [sep [ keywordColor (pretty "λ")
-            , arg2doc arg
-            , opColor dot]
-      , nest 2 (t2doc False t)]
+  sep [ opColor (pretty "\\") <>
+        arg2doc arg <>
+        opColor dot
+      , nest 4 (t2doc False t)]
 t2doc at t@(SApp _ _) =
   let (f, as) = collectApp t in
     parenIf at $
@@ -131,6 +131,15 @@ t2doc at (SAnn t ty) =
   parenIf at $
   t2doc False t <> opColor colon <> ty2doc False ty
 
+decl2doc :: SDecl -> Doc AnsiStyle
+decl2doc (SDecl n args ty t) =
+  sep [sep [name2doc n
+          <+> sep (map arg2doc args)
+          , opColor colon
+          , ty2doc False ty]
+      , opColor (pretty ":=")
+      , t2doc False t]
+
 render :: Doc AnsiStyle -> String
 render = unpack . renderStrict . layoutSmart defaultLayoutOptions
 
@@ -139,3 +148,6 @@ ppTerm = render . t2doc False
 
 ppType :: SType -> String
 ppType = render . ty2doc False
+
+ppDecl :: SDecl -> String
+ppDecl = render . decl2doc
