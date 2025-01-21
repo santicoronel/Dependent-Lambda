@@ -189,8 +189,9 @@ t `eqTy` u = Type (Data (Eq t u))
 
 getArgs :: Term -> (Term, [Term])
 getArgs = go []
-go as (t :@: u) = go (u : as) t
-go as f = (f, as)
+  where
+    go as (t :@: u) = go (u : as) t
+    go as f = (f, as)
 
 consArgTypes :: ConHead -> [Type]
 consArgTypes Zero = []
@@ -232,16 +233,16 @@ freeIn x t = Free x `occursIn` t
 occursIn :: Var -> Term -> Bool
 occursIn v (V u) = v == u
 occursIn v (Lam arg t) =
-  occursInType v (argType arg) || occursIn (shift 1 v) t
+  occursInType v (argType arg) || occursIn (shiftVar 1 v) t
 occursIn v (t :@: u) = occursIn v t || occursIn v u
 occursIn v (Elim t bs) = or (occursIn v t : map (occursInBranch v) bs)
 occursIn v (Fix _ arg ty t) =
   occursInType v (argType arg)
-  || occursInType (shift 1 v) ty
-  || occursIn (shift 2 v) t
+  || occursInType (shiftVar 1 v) ty
+  || occursIn (shiftVar 2 v) t
 occursIn v (Pi arg ty) =
   occursInType v (argType arg)
-  || occursInType (shift 1 v) ty
+  || occursInType (shiftVar 1 v) ty
 occursIn v (Ann t ty) =
   occursIn v t
   || occursInType v ty  
@@ -251,8 +252,8 @@ occursInType :: Var -> Type -> Bool
 occursInType v = occursIn v . unType
 
 occursInBranch :: Var -> ElimBranch -> Bool
-occursInBranch v b = occursIn (shift (length $ elimConArgs b) v) (elimRes b)
+occursInBranch v b = occursIn (shiftVar (length $ elimConArgs b) v) (elimRes b)
 
-shift :: Int -> Var -> Var
-shift i (Bound j) = Bound (j + 1)
-shift _ v = v
+shiftVar :: Int -> Var -> Var
+shiftVar i (Bound j) = Bound (j + 1)
+shiftVar _ v = v

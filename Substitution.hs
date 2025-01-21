@@ -128,3 +128,12 @@ substFree x t = varChanger (\_ i -> V (Bound i)) lcl
     lcl _ i
       | i == x = t
       | otherwise = V (Free i)
+
+shift :: Int -> Term -> Term
+shift i = varChanger bnd (\_ i -> V (Free i))
+  where
+    bnd d j
+      | i >= d = V (Bound i)
+      | i + j < 0 = error "shift: bound below 0"
+      | i + j > d = error "shift: bound over depth"
+      | otherwise = V (Bound (i + j))

@@ -23,7 +23,8 @@ import Common
 import Control.Monad ( mapM, zipWithM_, zipWithM )
 import Data.Maybe ( isJust )
 import Data.Foldable (foldrM)
-import Control.Monad.Extra ( ifM )
+import Control.Monad.Extra ( ifM, (>=>) )
+import Control.Monad.State (state)
 
 -- TODO eta reducccion
 -- TODO reduccion parcial
@@ -35,11 +36,18 @@ data Kont =
 
 type Stack = [Kont]
 
--- TODO pensar si de verdad quiero reducir fix una vez
+
 reduceNF :: MonadTypeCheck m => Term -> m Term
-reduceNF t = seek [] t
+reduceNF = betaReduceNF >=> etaReduce
+
+reduceNFType :: MonadTypeCheck m => Type -> m Type
+reduceNFType = betaReduceNFType >=> etaReduceType 
+
+-- TODO pensar si de verdad quiero reducir fix una vez
+betaReduceNF :: MonadTypeCheck m => Term -> m Term
+betaReduceNF t = seek [] t
   where
-    seek s (V (Bound i)) = error $ "bound " ++ show i ++ " in reduceNF"
+    seek s (V (Bound i)) = error $ "bound " ++ show i ++ " in betaReduceNF"
     seek s (V (Free i)) = do
       dx <- getLocalDef i
       case dx of
@@ -77,7 +85,7 @@ reduceNF t = seek [] t
     destroy [] t = case t of
       Lam arg t -> doAndRestore (do
         i <- newVar (argName arg)
-        t' <- reduceNF (open i t)
+        t' <- betaReduceNF (open i t)
         return (Lam arg $ close i t')
         )
       Fix f arg ty u -> doAndRestore (do
@@ -86,9 +94,9 @@ reduceNF t = seek [] t
         u' <- seek [] (open2 fi xi u)
         return (Fix f arg ty (close2 fi xi u'))
         )
-      Elim t bs -> Elim <$> reduceNF t <*> reduceNFBranches bs
-      (a :@: b) -> (:@:) <$> reduceNF a <*> reduceNF b
-      (Data (Eq a b)) -> Data <$> (Eq <$> reduceNF a <*> reduceNF b)
+      Elim t bs -> Elim <$> betaReduceNF t <*> betaReduceNFBranches bs
+      (a :@: b) -> (:@:) <$> betaReduceNF a <*> betaReduceNF b
+      (Data (Eq a b)) -> Data <$> (Eq <$> betaReduceNF a <*> betaReduceNF b)
       _ -> return t
 
     destroyFun s (V (Free i)) u = do
@@ -97,7 +105,7 @@ reduceNF t = seek [] t
         Nothing -> do
           -- puede q esto no haga falta
           -- reducimos argumentos al final
-          u' <- reduceNF u
+          u' <- betaReduceNF u
           destroy s (V (Free i) :@: u')
         Just t -> if isCons u
           then destroy (KArg u : s) t
@@ -110,24 +118,24 @@ reduceNF t = seek [] t
           fi <- bindRecDef f t
           xi <- bindLocalDef (argName arg) u
           a' <- seek s (open2 fi xi a)
-          t' <- reduceNF t
+          t' <- betaReduceNF t
           return (substFree fi t' a') -- esta bien esto??
         else destroy s (t :@: u)
     destroyFun s t u = destroy s (t :@: u)
 
-reduceNFType :: MonadTypeCheck m => Type -> m Type
-reduceNFType (Type t) = Type <$> reduceNF t
+betaReduceNFType :: MonadTypeCheck m => Type -> m Type
+betaReduceNFType (Type t) = Type <$> betaReduceNF t
 
-reduceNFBranches :: MonadTypeCheck m => [ElimBranch] -> m [ElimBranch]
-reduceNFBranches = mapM reduceNFBranch
+betaReduceNFBranches :: MonadTypeCheck m => [ElimBranch] -> m [ElimBranch]
+betaReduceNFBranches = mapM betaReduceNFBranch
   where
-    reduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
-    reduceNFBranch b = doAndRestore (do
+    betaReduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
+    betaReduceNFBranch b = doAndRestore (do
       let atys = consArgTypes (elimCon b)
       -- NICETOHAVE abstraer este patron
       is <- mapM newVar (elimConArgs b)
       let res = openMany is (elimRes b)
-      res' <- reduceNF res
+      res' <- betaReduceNF res
       return b { elimRes = closeMany is res' }
       )
 
@@ -158,3 +166,40 @@ reduce = reduceNF
 
 reduceType :: MonadTypeCheck m => Type -> m Type
 reduceType = reduceNFType
+
+-- MAYBE mas eficiente?
+etaReduce :: MonadTypeCheck m => Term -> m Term
+etaReduce t = go t
+  where
+    go :: MonadTypeCheck m => Term -> m Term
+    go (Lam arg t) = do
+      ty <- etaReduceType (argType arg)
+      let arg' = arg { argType = ty }
+      t' <- etaReduce t
+      case t' of
+        f :@: (V (Bound 0)) ->
+          if Bound 0 `occursIn` f
+            then return (Lam arg' t')
+            else return (shift (-1) f)
+        _ -> return (Lam arg' t')
+    go (t :@: u) = (:@:) <$> go t <*> go u
+    go (Elim t bs) = Elim <$> go t <*> mapM goBranch bs
+    go (Fix f arg ty t) = do
+      ty <- etaReduceType (argType arg)
+      let arg' = arg { argType = ty}
+      t' <- etaReduce t
+      ty' <- etaReduceType ty
+      return (Fix f arg' ty' t')
+    go (Pi arg ty) = do
+      aty <- etaReduceType (argType arg)
+      let arg' = arg { argType = aty }
+      ty' <- etaReduceType ty
+      return (Pi arg' ty')
+    go (Ann t ty) = Ann <$> go t <*> etaReduceType ty
+    go t = return t
+
+    goBranch (ElimBranch c ns t) = do
+      t' <- etaReduce t
+      return (ElimBranch c ns t')
+
+etaReduceType ty = Type <$> etaReduce (unType ty)
