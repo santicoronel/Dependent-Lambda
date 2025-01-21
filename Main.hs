@@ -84,7 +84,7 @@ runProgram p = do
       put emptyContext
         { global = global ctx, datadefs = datadefs ctx }
       when (declName d == "main") $ do
-        t <- reduce (declDef d)
+        t <- reduce (declDef d) -- TODO no reducir globales
         ctx <- get
         let ns = names ctx
             dns = map dataName $ datadefs ctx

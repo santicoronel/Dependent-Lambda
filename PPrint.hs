@@ -108,9 +108,9 @@ t2doc at t@(SApp _ _) =
     t2doc True f <+> sep (map (t2doc True) as)
 t2doc at (SElim t bs) =
   parenIf at $
-  sep [ keywordColor (pretty "elim"),
-        t2doc False t,
-        encloseBranches (map branch2doc bs)]
+  keywordColor (pretty "elim") <+>
+  t2doc False t <+>
+  encloseBranches (map branch2doc bs)
 t2doc at (SFix f arg ty t) =
   parenIf at $
   sep [sep [ keywordColor (keywordColor $ pretty "fix")
