@@ -26,6 +26,10 @@ let eq2eqnat (m n : Nat) (r : m = n) : eqnat m n := elim r {
     refl := eqnat_refl m
 }
 
+// Esto no pasa sort check :/
+// faltan data params    
+/*
+
 data List : (_:Set) -> Set {
     nil : (A : Set) -> List A ;
     cons : (A : Set) -> (_:A) -> (_:List A) -> List A
@@ -37,10 +41,6 @@ data Vec : (_:Set) -> (_:Nat) -> Set {
     nilv : (A : Set) -> Vec A 0;
     consv : (A : Set) -> (n : Nat) -> (_:A) -> (_:Vec A n) -> Vec A (suc n)
 }
-
-data Bot : Set {}
-
-let neq12 (r : 1 = 2) : Bot := elim r {}
 
 data Pair : (_ _:Set) -> Set {
     pair : (A B : Set) -> (_:A) -> (_:B) -> Pair A B
@@ -59,6 +59,7 @@ data Exists : (A : Set) -> (P : (_:A) -> Set) -> Set {
     ex : (A : Set) -> (P : (_:A) -> Set) -> (x : A) -> (p : P x) -> Exists A P 
 }
 
+// (esto si)
 data lt : (_:Nat) -> (_:Nat) -> Set {
     zlt : (n : Nat) -> lt 0 n ;
     slt : (m n : Nat) -> (_:lt m n) -> lt (suc m) (suc n) 
@@ -66,3 +67,18 @@ data lt : (_:Nat) -> (_:Nat) -> Set {
 
 let ex_0_lt : Exists Nat (\(n : Nat). lt 0 n) :=
 ex Nat (\(n : Nat). lt 0 n) 2 (zlt 2)
+*/
+
+data Bot : Set {}
+
+let neq12 (r : 1 = 2) : Bot := elim r {}
+
+// No pasa positivity check
+/*
+data Bad : Set {
+    bad : (_:(_:Bad) -> Bad) -> Bad
+}
+data Bad1 : Set {
+    bad1 : (_:(_:Bad1) -> Nat) -> Bad1
+}
+*/

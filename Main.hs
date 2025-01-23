@@ -96,7 +96,8 @@ runProgram p = do
     runData d = do
       shouldBeType (dataType d)
       addDataDef d
-      mapM_ (shouldBeType . conType) (dataCons d)
+      checkConsSort d
+      checkPositivity d
 
 loadFile :: FilePath -> IO (Maybe SProgram)
 loadFile f = do

@@ -272,4 +272,4 @@ occursInBranch v@(Global n) b =
 occursInBranch v b = occursIn v (elimRes b)
 
 subSort :: Sort -> Sort -> Bool
-subSort (Set i) (Set j) = i < j
+subSort (Set i) (Set j) = i <= j

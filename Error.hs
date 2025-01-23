@@ -5,13 +5,10 @@ import Lang
 -- TODO hacer bien
 
 data TypeError =
-  EFree Int
-  | EGlobal Name
+  EGlobal Name
   | EFun Type
   | EIncomplete Term
   | EEq Term Term
-  | EPartialEq
-  | ECheck Type Type
   | ECheckEq Type
   | ENotType Term
   | ECasesMissing
@@ -28,4 +25,6 @@ data TypeError =
   | EGlobalEx Name
   | ECheckFun Term
   | EWrongCons ConHead
+  | EDataSort Constructor Type Sort
+  | EPositivity Type DataDef DataDef
   deriving Show

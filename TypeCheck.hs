@@ -1,4 +1,4 @@
-module TypeCheck ( infer, check, shouldBeType ) where
+module TypeCheck ( infer, check, inferSort, shouldBeType ) where
 
 import Lang
 import Error
