@@ -114,6 +114,7 @@ t2doc at (SElim t bs) =
 t2doc at (SFix f arg ty t) =
   parenIf at $
   sep [sep [ keywordColor (keywordColor $ pretty "fix")
+            , name2doc f
             , arg2doc arg
             , opColor colon
             , ty2doc False ty
