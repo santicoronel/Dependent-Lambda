@@ -233,27 +233,43 @@ freeIn x t = Free x `occursIn` t
 occursIn :: Var -> Term -> Bool
 occursIn v (V u) = v == u
 occursIn v (Lam arg t) =
-  occursInType v (argType arg) || occursIn (shiftVar 1 v) t
+  occursInType v (argType arg) ||
+  case v of
+    Bound i -> occursIn (Bound (i + 1)) t
+    Free x -> occursIn v t
+    Global n -> argName arg /= n && occursIn v t
 occursIn v (t :@: u) = occursIn v t || occursIn v u
 occursIn v (Elim t bs) = or (occursIn v t : map (occursInBranch v) bs)
-occursIn v (Fix _ arg ty t) =
-  occursInType v (argType arg)
-  || occursInType (shiftVar 1 v) ty
-  || occursIn (shiftVar 2 v) t
+occursIn v (Fix f arg ty t) =
+  occursInType v (argType arg) ||
+  case v of
+    Bound i -> 
+      occursInType (Bound (i + 1)) ty ||
+      occursIn (Bound (i + 2)) t
+    Free x -> occursInType v ty || occursIn v t
+    Global n ->
+      argName arg /= n && occursInType v ty ||
+      f /= n && argName arg /= n && occursIn v t    
 occursIn v (Pi arg ty) =
-  occursInType v (argType arg)
-  || occursInType (shiftVar 1 v) ty
+  occursInType v (argType arg) ||
+  case v of
+    Bound i -> occursInType (Bound (i + 1)) ty
+    Free x -> occursInType v ty
+    Global n -> argName arg /= n && occursInType v ty
 occursIn v (Ann t ty) =
   occursIn v t
-  || occursInType v ty  
+  || occursInType v ty
 occursIn _ _ = False
 
 occursInType :: Var -> Type -> Bool
 occursInType v = occursIn v . unType
 
 occursInBranch :: Var -> ElimBranch -> Bool
-occursInBranch v b = occursIn (shiftVar (length $ elimConArgs b) v) (elimRes b)
+occursInBranch (Bound i) b = 
+  occursIn (Bound (i + length (elimConArgs b))) (elimRes b)
+occursInBranch v@(Global n) b =
+  notElem n (elimConArgs b) && occursIn v (elimRes b)
+occursInBranch v b = occursIn v (elimRes b)
 
-shiftVar :: Int -> Var -> Var
-shiftVar i (Bound j) = Bound (j + 1)
-shiftVar _ v = v
+subSort :: Sort -> Sort -> Bool
+subSort (Set i) (Set j) = i < j
