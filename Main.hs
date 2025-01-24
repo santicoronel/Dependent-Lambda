@@ -12,7 +12,7 @@ import Error
 import Termination
 import Reduce ( reduce, reduceType )
 import Datatype
-import Desugar
+import Resugar
 import PPrint
 
 import Options.Applicative
@@ -90,7 +90,7 @@ runProgram p = do
             dns = map dataName $ datadefs ctx
             cns = concatMap (map conName . dataCons) (datadefs ctx)
             reserved = dns ++ cns
-            sd = desugarDecl (Decl (declName d) t) ty
+            sd = resugarDecl (Decl (declName d) t) ty
         liftIO $ putStrLn (ppDecl sd)
     runData :: DataDef -> RunTypeCheck ()
     runData d = do

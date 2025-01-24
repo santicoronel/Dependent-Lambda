@@ -24,7 +24,7 @@ executable DLam
       Common
       Datatype
       PPrint
-      Desugar
+      Resugar
     ghc-options: 
         -threaded 
         -rtsopts 
