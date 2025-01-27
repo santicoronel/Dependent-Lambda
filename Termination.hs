@@ -134,7 +134,10 @@ checkBranchWith x b = doAndRestore (do
   )
 
 checkBranch :: ElimBranch -> CheckedTerm
-checkBranch b = check (elimRes b)
+checkBranch b = doAndRestore (do
+  is <- mapM addVar (elimConArgs b)
+  check (openMany is (elimRes b))
+  )
 
 
 checkType :: Type -> CheckedTerm
