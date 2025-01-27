@@ -26,14 +26,15 @@ infer (Lam arg t) = doAndRestore (do
   ty <- infer (open i t)
   return (Type $ Pi arg (closeType i ty))
   )
-infer (t :@: u) = do  tt <- infer t
-                      tt' <- reduceType tt
-                      case unType tt' of
-                        Pi arg ty -> do
-                          check u (argType arg)
-                          i <- bindLocal (argName arg) (argType arg) u
-                          reduceType (openType i ty)
-                        _ -> throwError $ EFun tt'
+infer (t :@: u) = do
+  tt <- infer t
+  tt' <- reduceType tt
+  case unType tt' of
+    Pi arg ty -> do
+      check u (argType arg)
+      i <- bindLocal (argName arg) (argType arg) u
+      reduceType (openType i ty)
+    _ -> throwError $ EFun tt'
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
@@ -110,7 +111,7 @@ inferElim' (Eq t u) [] bs = case bs of
   [ElimBranch Refl [] r] -> doAndRestore (do
     ifM (unifyTerms t u)
       (infer r)
-      (throwError ENotUnif)
+      (throwError EManyCases)
     )
   [ElimBranch Refl _ _] -> error "typecheck: illformed branch"
   _ -> throwError EManyCases
@@ -145,7 +146,7 @@ inferBranch dd as b = case elimCon b of
         cty' = openMany is (unType cty)
         (_, cas) = getArgs cty'
     ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    unless ru (throwError ENotUnif)
+    unless ru (throwError EManyCases)
     -----------------------------------------------------------
     let tys = map argType args
     let tys' = openManyTypes is tys
@@ -172,9 +173,10 @@ check (Lam arg t) ty = doAndRestore (do
       argType arg `tequal` argType piarg
       i <- bindArg (argName arg) (argType piarg)
       check (open i t) (openType i pity)
-    _ -> throwError $ ECheckFun (Lam arg t)
+    _ -> throwError $ ECheckFun (Lam arg t) ty'
   )
-check (Elim t ts) ty = checkElim t ts ty
+check (Elim t ts) ty = do
+  checkElim t ts ty
 check (Con ch) ty = checkCon ch ty
 check t ty = do
   tt <- infer t
@@ -220,7 +222,7 @@ checkBranch dd as (DataCon c, mb) ty = case mb of
         (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
     ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    when ru $ throwError EUnifiable
+    when ru $ throwError ECasesMissing
     )
   Just b -> do
     et <- inferBranch dd as b
@@ -248,12 +250,12 @@ checkElim' x Nat [] bs rty = do
 -- Eq
 checkElim' x (Eq t u) [] bs rty = case bs of
   [] -> doAndRestore $
-    whenM (unifyTerms t u) $ throwError EUnifiable
+    whenM (unifyTerms t u) $ throwError ECasesMissing
   [ElimBranch Refl [] r] -> doAndRestore (do
-    unlessM (unifyTerms t u) (throwError ENotUnif)
+    unlessM (unifyTerms t u) (throwError EManyCases)
     bindPattern x (Con Refl)
     check r rty)
-  [ElimBranch Refl _ _] -> throwError (ENumberOfArgs Refl)
+  [ElimBranch Refl _ _] -> error "checkElim': Refl args"
   _ -> throwError EManyCases
 -- DataT
 checkElim' x (DataT d) as bs rty = do
@@ -283,7 +285,7 @@ checkBranch' x dd as (DataCon c, mb) ty = case mb of
         (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
     ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    when ru $ throwError EUnifiable
+    when ru $ throwError ECasesMissing
     )
   Just b -> doAndRestore (do
     is <- mapM newVar (elimConArgs b)
@@ -292,7 +294,7 @@ checkBranch' x dd as (DataCon c, mb) ty = case mb of
         (_, cas) = getArgs cty'
     -- ver si hay una mejor alternativa a foldM
     ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    unless ru $ throwError ENotUnif
+    unless ru $ throwError EManyCases
     --------------------------------------------------------------------------
     let tys = map argType args
     let tys' = openManyTypes is tys

@@ -18,7 +18,7 @@ class (
   Monad m,
   MonadError TypeError m,
   MonadState Context m,
-  MonadIO m
+  MonadIO m -- MAYBE sacar
   ) => MonadTypeCheck m where
 
 
@@ -35,7 +35,7 @@ getGlobalType :: MonadTypeCheck m => Name -> m Type
 getGlobalType x = do  ctx <- gets global
                       case lookupWith x ctx globalName globalType of
                         Just t -> return t
-                        Nothing -> throwError $ EGlobal x
+                        Nothing -> error "getGlobalType"
 
 getLocalDef :: MonadTypeCheck m => Int -> m (Maybe Term)
 getLocalDef i = do
@@ -47,7 +47,7 @@ getGlobalDef x = do
   ctx <- gets global
   case lookupWith x ctx globalName globalDef of
     Just t -> return t
-    Nothing -> throwError $ EGlobal x 
+    Nothing -> error "getGlobalDef"
 
 bindGlobal :: MonadTypeCheck m => Decl -> Type -> m ()
 -- bindGlobal (Decl n ty t) = do
@@ -132,7 +132,7 @@ getDataDef d = do
   dds <- gets datadefs
   case lookupWith d dds dataName id of
     Just dd -> return dd
-    Nothing -> throwError (EDataNoDef d)
+    Nothing -> error "getDataDef"
 
 addDataDef :: MonadTypeCheck m => DataDef -> m ()
 addDataDef d = do

@@ -2,6 +2,7 @@
 
 module Elab where
 
+
 import Lang
 import Common
 import Datatype
@@ -11,6 +12,8 @@ import Control.Monad.Except
 import Data.List ( elemIndex, group )
 
 data ElabError = ElabError String | DataError String
+
+-- NICETOHAVE mejores mensajes de error
 
 data ElabContext = ElabContext {
     local :: [Name],
@@ -90,7 +93,7 @@ elab (SEq t u) = do
 elab (SV x) = do
   mv <- gets variable
   case mv of
-    Nothing -> throwError (ElabError $ "var " ++ x ++ " not defined")
+    Nothing -> throwError (ElabError $ "var " ++ x ++ " no definida")
     Just v -> return v 
   where
     variable (ElabContext lc gc dt cs)
@@ -163,7 +166,7 @@ elabType (Type ty) = Type <$> elab ty
 elabBranches :: MonadElab m => [SElimBranch] -> m [ElimBranch]
 elabBranches bs = do
   when (duplicateName (map elimCon bs))
-    (throwError (ElabError "branches redundantes"))
+    (throwError (ElabError "casos repetidos en cláusula elim"))
   mapM_ checkArgNames bs
   mapM elabBranch bs
 
@@ -174,27 +177,28 @@ checkArgNames (ElimBranch _ as _ ) =
 elabBranch :: MonadElab m => SElimBranch -> m ElimBranch
 elabBranch (ElimBranch "zero" as t) = case as of
   [] -> ElimBranch Zero [] <$> elab t
-  _ -> throwError (ElabError "too many cases for zero")
+  _ -> throwError (ElabError "el constructor 'zero' no toma argumentos")
 elabBranch (ElimBranch "suc" as t) = case as of
-  [] -> throwError (ElabError "not enough cases for suc")
+  [] -> throwError (ElabError "faltan argumentos para el constructor 'suc'")
   [n] -> do
     ctx <- get
     put ctx { local = n : local ctx }
     t' <- elab t
     put ctx
     return (ElimBranch Suc [n] t')
-  _ -> throwError (ElabError "too many cases for suc") 
+  _ -> throwError (ElabError "el constructor 'suc' toma un solo argumento") 
 elabBranch (ElimBranch "refl" as t) = case as of
   [] -> ElimBranch Refl [] <$> elab t
-  _ -> throwError (ElabError "too many cases for refl")
+  _ -> throwError (ElabError "el constructor 'refl' toma un solo argumento")
 elabBranch (ElimBranch nc as t) = do
   ctx <- get
   case lookupWith nc (cons ctx) conName id of
     Nothing ->
-      throwError (ElabError $ "constructor nc " ++ nc ++ " not defined")
+      throwError (ElabError $ "el constructor '" ++ nc ++ "' no está definido")
     Just c -> do
       unless (length as == conArity c) $
-        throwError (ElabError $ "wrong number of cases for " ++ nc)
+        throwError (ElabError $
+        "cantidad de argumentos incorrecta para el construcor '" ++ nc ++ "'")
       put ctx { local = reverse as ++ local ctx }
       t' <- elab t
       put ctx
