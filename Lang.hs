@@ -1,6 +1,8 @@
 module Lang where
 import Common
 
+-- TODO quitar built-in naturales
+
 type Name = String
 
 data Definition decl daty = PDecl decl | PData daty 
@@ -80,6 +82,12 @@ data ConHead =
   | Refl
   | DataCon Constructor
   deriving (Eq, Show)
+
+conHeadName :: ConHead -> String
+conHeadName Zero = "zero"
+conHeadName Suc = "suc"
+conHeadName Refl = "refl"
+conHeadName (DataCon c) = conName c
 
 -- TODO hacer como constructor?
 data DataType =

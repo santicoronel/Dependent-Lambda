@@ -42,10 +42,11 @@ main = execParser (info (argument str idm) fullDesc) >>= go
       case mst of
         Nothing  -> return ()
         Just sp -> case runElab sp of
-          (Left e, ctx) -> case e of
+          (Left e, ctx) -> putStrLn "Error: " >> case e of
             ElabError e -> putStrLn e
             DataError e -> putStrLn e
           (Right p, _) -> case runTerminationCheck (onlyDecls p) of
+            -- TODO imprimir bien esto
             TE e _ -> putStrLn $ "termination error: " ++ show e
             TOK -> runProgram p
 
@@ -60,16 +61,19 @@ runElab p = runState (runExceptT (elabProgram p)) emptyElabContext
 runTerminationCheck :: [Decl] -> TChecked
 runTerminationCheck = foldMap (terminationCheck . declDef)
 
+getNames :: Context ->  ([Name], [Name])
+getNames ctx = 
+  let dns = map dataName $ datadefs ctx
+      cns = [conName c | d <- datadefs ctx, c <- dataCons d]
+  in  (names ctx, dns ++ cns)
 
 runProgram :: Program -> IO ()
 runProgram p = do
   r <- runStateT (runExceptT (mapM_ runDef p)) emptyContext
   case r of
     (Left e, ctx) -> do
-      print e
-      let ns = names ctx
-          vs = zip [0..length ns - 1] (reverse ns)
-      print vs -- TODO frees
+      let emsg = uncurry ppError (getNames ctx) e
+      putStrLn emsg
     (Right (), _) -> putStrLn "Todo OK"
   where
     runDef :: Definition Decl DataDef -> RunTypeCheck ()
@@ -86,11 +90,8 @@ runProgram p = do
       when (declName d == "main") $ do
         t <- reduce (declDef d) -- TODO no reducir globales
         ctx <- get
-        let ns = names ctx
-            dns = map dataName $ datadefs ctx
-            cns = concatMap (map conName . dataCons) (datadefs ctx)
-            reserved = dns ++ cns
-            sd = resugarDecl (Decl (declName d) t) ty
+        let (_, reserved) = getNames ctx
+            sd = resugarDecl reserved (Decl (declName d) t) ty
         liftIO $ putStrLn (ppDecl sd)
     runData :: DataDef -> RunTypeCheck ()
     runData d = do
@@ -98,6 +99,7 @@ runProgram p = do
       addDataDef d
       checkConsSort d
       checkPositivity d
+
 
 loadFile :: FilePath -> IO (Maybe SProgram)
 loadFile f = do
