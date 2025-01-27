@@ -1,4 +1,8 @@
-module Resugar ( resugar, resugarType, resugarDecl ) where
+module Resugar (
+  resugar,
+  resugarType,
+  resugarDecl
+  ) where
 
 import Lang
 import Substitution
@@ -12,10 +16,11 @@ data NamingContext = NContext {
 } deriving Show
 
 -- TODO agrupar lambdas
-resugarDecl :: Decl -> Type -> SDecl
-resugarDecl d ty = case resugar [] [] (declDef d) of
-  SLam arg t -> SDecl (declName d) [arg] (resugarType [] [] ty) t
-  t -> SDecl (declName d) [] (resugarType [] [] ty) t
+resugarDecl :: [Name] -> Decl -> Type -> SDecl
+resugarDecl rs d ty = case resugar [] rs (declDef d) of
+  -- TODO sacar argumentos del tipo
+  SLam arg t -> SDecl (declName d) [arg] (resugarType [] rs ty) t
+  t -> SDecl (declName d) [] (resugarType [] rs ty) t
 
 resugarType :: [Name] -> [Name] -> Type -> SType
 resugarType ns rs = Type . resugar ns rs . unType
@@ -31,7 +36,7 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go (V (Global x)) = return (SV x)
     go (Lam arg t) = doAndRestore $ do
       ty <- Type <$> go (unType $ argType arg)
-      n <- freshenBound (argName arg)
+      n <- freshen rs (argName arg)
       bindName n
       t' <- go t
       case t' of
@@ -45,7 +50,7 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       case (t', u') of
         (SSuc, Lit n) -> return (Lit (n + 1))
         _ -> return (SApp t' u')  
-    go (Con ch) = goConHead ch
+    go (Con ch) = return (resugarConHead ch)
     go (Data dt) = case dt of
       Nat -> return SNat
       Eq t u -> SEq <$> go t <*> go u
@@ -54,11 +59,11 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go (Fix f arg ty t) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
       ctx <- get
-      x <- freshenBound (argName arg)
+      x <- freshen rs (argName arg)
       bindName x
       ty' <- Type <$> go (unType ty)
       put ctx
-      f' <- freshenBound f
+      f' <- freshen rs f
       bindName f'
       bindName x
       t' <- go t
@@ -75,7 +80,7 @@ resugar ns rs t = evalState (go t) (NContext [] [])
         _ -> return (SFix f' (Arg [x] argty) ty' t')
     go (Pi arg ty) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
-      n <- freshenBound (argName arg)
+      n <- freshen rs (argName arg)
       bindName n
       ty' <- go (unType ty)
       case ty' of
@@ -86,22 +91,17 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go (Sort (Set i)) = return (SSort (Set i))
     go (Ann t ty) = SAnn <$> go t <*> (Type <$> go (unType ty))
 
-    goConHead Zero = return (Lit 0)
-    goConHead Suc = return SSuc
-    goConHead Refl = return SRefl
-    goConHead (DataCon c) = return (SV $ conName c)
-
+    resugarConHead Zero = Lit 0
+    resugarConHead Suc = SSuc
+    resugarConHead Refl = SRefl
+    resugarConHead (DataCon c) = SV $ conName c
+    
     goBranch :: ElimBranch -> State NamingContext SElimBranch
     goBranch (ElimBranch c as t) = doAndRestore $ do
-      as' <- mapM freshenBound as
+      as' <- mapM (freshen rs) as
       mapM_ bindName as'
       t' <- go t
       return (ElimBranch (conHeadName c) as' t')
-    
-    conHeadName Zero = "zero"
-    conHeadName Suc = "suc"
-    conHeadName Refl = "refl"
-    conHeadName (DataCon c) = conName c
 
 
 appPi :: STerm -> [Name] -> Term
@@ -111,9 +111,6 @@ bindName :: Name -> State NamingContext ()
 bindName n = do
   ctx <- get
   put ctx { boundNames = n : boundNames ctx }
-
-freshenBound :: Name -> State NamingContext Name
-freshenBound = freshen []
 
 -- TODO chequear que no pise un constructor
 freshen :: [Name] -> Name -> State NamingContext Name
@@ -130,7 +127,7 @@ freshen rs n = do
       ctx <- get
       let ns = usedNames ctx
           ni = n ++ i
-      if n ++ i `elem` ns || n ++ i `elem` rs
+      if ni `elem` ns || ni `elem` rs
         then go is rs n
         else do
           put ctx { usedNames = ni : ns }
