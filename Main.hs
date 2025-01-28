@@ -45,10 +45,7 @@ main = execParser (info (argument str idm) fullDesc) >>= go
           (Left e, ctx) -> putStrLn "Error: " >> case e of
             ElabError e -> putStrLn e
             DataError e -> putStrLn e
-          (Right p, _) -> case runTerminationCheck (onlyDecls p) of
-            -- TODO imprimir bien esto
-            TE e _ -> putStrLn $ "termination error: " ++ show e
-            TOK -> runProgram p
+          (Right p, _) -> runProgram p
 
 onlyDecls :: Program -> [Decl]
 onlyDecls [] = []
@@ -58,21 +55,19 @@ onlyDecls (PData _ : p) = onlyDecls p
 runElab :: SProgram -> (Either ElabError Program, ElabContext)
 runElab p = runState (runExceptT (elabProgram p)) emptyElabContext
 
-runTerminationCheck :: [Decl] -> TChecked
-runTerminationCheck = foldMap (terminationCheck . declDef)
-
-getNames :: Context ->  ([Name], [Name])
+getNames :: Context -> [Name]
 getNames ctx = 
-  let dns = map dataName $ datadefs ctx
+  let gns = map globalName $ global ctx
+      dns = map dataName $ datadefs ctx
       cns = [conName c | d <- datadefs ctx, c <- dataCons d]
-  in  (names ctx, dns ++ cns)
+  in  gns ++ dns ++ cns
 
 runProgram :: Program -> IO ()
 runProgram p = do
   r <- runStateT (runExceptT (mapM_ runDef p)) emptyContext
   case r of
     (Left e, ctx) -> do
-      let emsg = uncurry ppError (getNames ctx) e
+      let emsg = ppTypeError (names ctx) (getNames ctx) e
       putStrLn emsg
     (Right (), _) -> putStrLn "Todo OK"
   where
@@ -80,7 +75,11 @@ runProgram p = do
     runDef (PDecl d) = runDecl d
     runDef (PData d) = runData d
     runDecl :: Decl -> RunTypeCheck ()
-    runDecl d = do
+    runDecl d = case terminationCheck (declDef d) of
+        TOK -> runTC d
+        TE e -> throwError (Other $ ppTerminationError e)
+    runTC :: Decl -> RunTypeCheck ()
+    runTC d = do
       ty <- infer (declDef d)
       bindGlobal d ty
       ctx <- get
@@ -90,7 +89,7 @@ runProgram p = do
       when (declName d == "main") $ do
         t <- reduce (declDef d) -- TODO no reducir globales
         ctx <- get
-        let (_, reserved) = getNames ctx
+        let reserved = getNames ctx
             sd = resugarDecl reserved (Decl (declName d) t) ty
         liftIO $ putStrLn (ppDecl sd)
     runData :: DataDef -> RunTypeCheck ()
@@ -106,7 +105,8 @@ loadFile f = do
     let filename = reverse(dropWhile isSpace (reverse f))
     x <- catch (readFile filename)
           (\e -> do let err = show (e :: IOException)
-                    hPutStrLn stderr ("No se pudo abrir el archivo " ++ filename ++ ": " ++ err)
+                    hPutStrLn stderr 
+                      ("No se pudo abrir el archivo " ++ filename ++ ": " ++ err)
                     return "")
     -- setLastFile filename
     case parseIO filename program x of

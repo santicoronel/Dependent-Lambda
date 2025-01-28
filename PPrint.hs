@@ -150,8 +150,9 @@ decl2doc (SDecl n args ty t) =
       , t2doc False t]
 
 -- MAYBE ponerle estilo (color, ...) a los terminos
-error2doc :: [Name] -> [Name] -> TypeError -> Doc AnsiStyle
-error2doc ns rs e = pretty "Error:" <+> align (go e)
+typeError2doc :: [Name] -> [Name] -> TypeError -> Doc AnsiStyle
+typeError2doc _ _ (Other e) = pretty e
+typeError2doc ns rs e = pretty "Error:" <+> align (go e)
   where
     go (EFun ty) =
       let sty = resugarType ns rs ty
@@ -196,9 +197,9 @@ error2doc ns rs e = pretty "Error:" <+> align (go e)
           align (vsep [
             t2doc False st
           , t2doc False su])
+    -- TODO revisar este caso
     go EIncompleteBot =
-      pretty "no se pueden inferir casos faltantes." <+>
-      pretty "Probá agregando una anotación de tipo"
+      pretty "no se pueden inferir casos faltantes."
     go (ENeq t u) =
       let st = resugar ns rs t
           su = resugar ns rs u
@@ -249,6 +250,13 @@ error2doc ns rs e = pretty "Error:" <+> align (go e)
           pretty "no pasa el test de positividad para" <+>
           name2doc nx
 
+terminationError2doc :: TerminationError -> Doc AnsiStyle
+terminationError2doc e = pretty "Error:" <+> align (go e)
+  where
+    go (TError f) =
+      pretty "no se pudo probar terminación para la función" <+>
+      pretty f
+
 render :: Doc AnsiStyle -> String
 render = unpack . renderStrict . layoutSmart defaultLayoutOptions
 
@@ -261,5 +269,8 @@ ppType = render . ty2doc False
 ppDecl :: SDecl -> String
 ppDecl = render . decl2doc
 
-ppError :: [Name] -> [Name] -> TypeError -> String
-ppError ns rs = render . error2doc ns rs
+ppTypeError :: [Name] -> [Name] -> TypeError -> String
+ppTypeError ns rs = render . typeError2doc ns rs
+
+ppTerminationError :: TerminationError -> String
+ppTerminationError = render . terminationError2doc

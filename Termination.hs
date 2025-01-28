@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Termination (
-  TError( TError),
   TChecked( TE, TOK ),
   terminationCheck,
   terminationCheckType
@@ -14,25 +13,16 @@ import Control.Monad.State
 import Control.Monad.Except
 import Common
 import Substitution
+import Error
 
 -- NICETOHAVE permitir recursion mutua (foetus)
 
--- TODO mejor error
-newtype TError = TError Term deriving Show
+data TChecked = TE TerminationError | TOK
 
-data TChecked = TE TError [Name] | TOK
-
-instance Semigroup TChecked where
-  TOK <> TOK = TOK
-  TE te ns <> _ = TE te ns
-  _ <> TE te ns  = TE te ns
-
-instance Monoid TChecked where
-  mempty = TOK
 
 terminationCheck :: Term -> TChecked
 terminationCheck t = case runState (runExceptT (check t)) emptyContext of
-  (Left e, ctx) -> TE e (ns ctx)
+  (Left e, ctx) -> TE e
   (Right (), _) -> TOK
 
 terminationCheckType :: Type -> TChecked
@@ -83,20 +73,26 @@ addFixOp r x = do
   put ctx { rb = (ir, ix) : rbinders }
   return (ir, ix)
 
-type CheckedTerm = ExceptT TError (State TContext) ()
+type CheckedTerm = ExceptT TerminationError (State TContext) ()
+
+throw :: Int -> CheckedTerm
+throw x = do
+  ctx <- get
+  throwError (TError $ reverse (ns ctx) !! x)
 
 check :: Term -> CheckedTerm
 check (V (Bound i)) = error $ "Termination check: bound " ++ show i 
 check (V (Free f) :@: u) = do
+  check u
   rf <- recVar f
   case rf of
-    Nothing -> check u
-    Just x -> checkSub u x
-check t@(V (Free x)) = do
-  rf <- recVar x
+    Nothing -> return ()
+    Just x -> checkSub f u x
+check t@(V (Free f)) = do
+  rf <- recVar f
   case rf of
     Nothing -> return ()
-    Just _ -> throwError (TError t)
+    Just _ -> throw f
 check (Lam arg t) = doAndRestore (do
   checkType (argType arg)
   x <- addVar (argName arg)
@@ -120,11 +116,11 @@ check (Ann t ty) = do
   checkType ty
 check _ = return ()
 
-checkSub :: Term -> VarId -> CheckedTerm
-checkSub t@(V (Free x)) y = do
+checkSub :: VarId -> Term -> VarId -> CheckedTerm
+checkSub f t@(V (Free x)) y = do
   x_lt_y <- x `lessThan` y
-  unless x_lt_y (throwError (TError t))
-checkSub t _ = throwError (TError t)
+  unless x_lt_y (throw f)
+checkSub f t _ = throw f
 
 checkBranchWith :: VarId -> ElimBranch -> CheckedTerm
 checkBranchWith x b = doAndRestore (do

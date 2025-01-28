@@ -126,7 +126,7 @@ freshen rs n = do
     go (i:is) rs n = do
       ctx <- get
       let ns = usedNames ctx
-          ni = n ++ i
+          ni = n ++ "_" ++ i
       if ni `elem` ns || ni `elem` rs
         then go is rs n
         else do

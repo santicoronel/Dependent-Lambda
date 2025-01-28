@@ -1,1 +1,2 @@
-let main : Nat := fix f (m : Nat) : Nat . f m
+let a_1 : Nat := 0
+let main (a a a1 b : Nat) : Nat := a

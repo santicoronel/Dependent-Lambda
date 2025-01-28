@@ -1,8 +1,8 @@
 module Error where
 
+-- NICETOHAVE incluir todos los errores aca
 import Lang
 
--- TODO hacer bien
 -- MAYBE parametrizar para resugarear antes de printear
 data TypeError =
   EFun Type
@@ -23,4 +23,8 @@ data TypeError =
   | EWrongCons ConHead
   | EDataSort Constructor Type Sort
   | EPositivity Type DataDef DataDef
+  | Other String
   deriving Show
+
+-- TODO mejor error
+newtype TerminationError = TError Name deriving Show
