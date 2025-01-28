@@ -15,11 +15,19 @@ data NamingContext = NContext {
   boundNames :: [Name]
 } deriving Show
 
+trimPiArgs :: Int -> Type -> Type
+trimPiArgs n (Type t) = go n t
+  where
+    go 0 t = Type t
+    go n (Pi arg ty) | n > 0 = go (n - 1) (unType ty)
+
 -- TODO agrupar lambdas
 resugarDecl :: [Name] -> Decl -> Type -> SDecl
 resugarDecl rs d ty = case resugar [] rs (declDef d) of
   -- TODO sacar argumentos del tipo
-  SLam arg t -> SDecl (declName d) [arg] (resugarType [] rs ty) t
+  SLam arg t -> 
+    let ty' = trimPiArgs (length $ argName arg) ty
+    in  SDecl (declName d) [arg] (resugarType [] rs ty') t
   t -> SDecl (declName d) [] (resugarType [] rs ty) t
 
 resugarType :: [Name] -> [Name] -> Type -> SType
