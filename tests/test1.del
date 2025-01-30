@@ -116,12 +116,12 @@ fix subsn (n : Nat) : subs n n = 0 . elim n {
     suc n' := trans Nat (subs n n) (subs n' n') 0 (subs_suc n' n') (subsn n')
 }
 
-let mult : (_:Nat) -> (_:Nat) -> Nat := fix mult (m n : Nat) : Nat . elim m {
+let rec mult (m n : Nat) : Nat := elim m {
     zero := zero ;
     suc m' := sum n (mult m' n)
 }
 
-let mult0 : (n : Nat) -> mult n 0 = 0 := fix mult0 (n : Nat) : mult n 0 = 0 . elim n {
+let rec mult0 (n : Nat) : mult n 0 = 0 := elim n {
     zero := refl ;
     suc n' := mult0 n'
 }

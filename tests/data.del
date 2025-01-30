@@ -16,10 +16,9 @@ data eqnat : (_ : Nat) -> (_:Nat) -> Set {
 
 let eq2 : eqnat 2 2 := seqs 1 1 (seqs 0 0 zeqz)
 
-let eqnat_refl : (m : Nat) -> eqnat m m :=
-fix eq (m : Nat) : eqnat m m. elim m {
+let rec eqnat_refl (m : Nat) : eqnat m m := elim m {
     zero := zeqz ;
-    suc m' := seqs m' m' (eq m')
+    suc m' := seqs m' m' (eqnat_refl m')
 } 
 
 let eq2eqnat (m n : Nat) (r : m = n) : eqnat m n := elim r {
