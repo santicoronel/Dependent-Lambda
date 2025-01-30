@@ -36,6 +36,11 @@ data Kont =
 
 type Stack = [Kont]
 
+reduce :: MonadTypeCheck m => Term -> m Term
+reduce = reduceNF
+
+reduceType :: MonadTypeCheck m => Type -> m Type
+reduceType = reduceNFType
 
 reduceNF :: MonadTypeCheck m => Term -> m Term
 reduceNF = betaReduceNF >=> etaReduce
@@ -161,11 +166,6 @@ match ch (b:bs)
   | ch == elimCon b = b
   | otherwise = match ch bs
 
-reduce :: MonadTypeCheck m => Term -> m Term
-reduce = reduceNF
-
-reduceType :: MonadTypeCheck m => Type -> m Type
-reduceType = reduceNFType
 
 -- MAYBE mas eficiente?
 etaReduce :: MonadTypeCheck m => Term -> m Term
@@ -185,8 +185,8 @@ etaReduce t = go t
     go (t :@: u) = (:@:) <$> go t <*> go u
     go (Elim t bs) = Elim <$> go t <*> mapM goBranch bs
     go (Fix f arg ty t) = do
-      ty <- etaReduceType (argType arg)
-      let arg' = arg { argType = ty}
+      aty <- etaReduceType (argType arg)
+      let arg' = arg { argType = aty }
       t' <- etaReduce t
       ty' <- etaReduceType ty
       return (Fix f arg' ty' t')
