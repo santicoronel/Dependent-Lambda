@@ -11,7 +11,7 @@ import Common
 import Control.Monad.State
 
 data NamingContext = NContext {
-  usedNames :: [Name],
+  freeNames :: [(Int, Name)],
   boundNames :: [Name]
 } deriving Show
 
@@ -57,11 +57,11 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       if i >= length bn 
         then error $ show i ++ " " ++ show bn
         else return (SV (bn !! i))
-    go (V (Free i)) = SV <$> freshen rs (ns !! i)
+    go (V (Free i)) = SV <$> freshenFree ns rs i
     go (V (Global x)) = return (SV x)
     go (Lam arg t) = doAndRestore $ do
       ty <- Type <$> go (unType $ argType arg)
-      n <- freshen rs (argName arg)
+      n <- freshenBound rs (argName arg)
       bindName n
       t' <- go t
       case t' of
@@ -83,11 +83,11 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go (Fix f arg ty t) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
       ctx <- get
-      x <- freshen rs (argName arg)
+      x <- freshenBound rs (argName arg)
       bindName x
       ty' <- Type <$> go (unType ty)
       put ctx
-      f' <- freshen rs f
+      f' <- freshenBound rs f
       bindName f'
       bindName x
       t' <- go t
@@ -99,7 +99,7 @@ resugar ns rs t = evalState (go t) (NContext [] [])
         _ -> return (SFix f' [Arg [x] argty] ty' t')
     go (Pi arg ty) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
-      n <- freshen rs (argName arg)
+      n <- freshenBound rs (argName arg)
       bindName n
       ty' <- go (unType ty)
       case ty' of
@@ -118,7 +118,7 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     
     goBranch :: ElimBranch -> State NamingContext SElimBranch
     goBranch (ElimBranch c as t) = doAndRestore $ do
-      as' <- mapM (freshen rs) as
+      as' <- mapM (freshenBound rs) as
       mapM_ bindName as'
       t' <- go t
       return (ElimBranch (conHeadName c) as' t')
@@ -132,22 +132,34 @@ bindName n = do
   ctx <- get
   put ctx { boundNames = n : boundNames ctx }
 
-freshen :: [Name] -> Name -> State NamingContext Name
-freshen rs n = do
+
+usedNames :: NamingContext -> [Name]
+usedNames ctx = boundNames ctx ++ map snd (freeNames ctx)
+
+freshenBound :: [Name] -> Name -> State NamingContext Name
+freshenBound rs n = do
   ctx <- get
-  if n `elem` usedNames ctx
-    then go (map show [1..]) rs n
-    else do
-      put ctx { usedNames = n : usedNames ctx }
+  return $ freshen (usedNames ctx) rs n
+  
+
+freshenFree :: [Name] -> [Name] -> Int -> State NamingContext Name
+freshenFree ns rs i = do
+  ctx <- get
+  case lookup i (freeNames ctx) of
+    Just n -> return n
+    Nothing -> do 
+      let n = freshen (usedNames ctx) rs (ns !! i)
+      put ctx { freeNames = (i, n) : freeNames ctx }
       return n
+
+freshen :: [Name] -> [Name] -> Name -> Name
+freshen used rs n = if n `elem` used
+    then go (map show [1..]) n
+    else n
   where 
-    go :: [Name] -> [Name] -> Name -> State NamingContext Name
-    go (i:is) rs n = do
-      ctx <- get
-      let ns = usedNames ctx
-          ni = n ++ "_" ++ i
-      if ni `elem` ns || ni `elem` rs
-        then go is rs n
-        else do
-          put ctx { usedNames = ni : ns }
-          return ni
+    go :: [Name] -> Name -> Name
+    go (i:is) n =
+      let ni = n ++ "_" ++ i
+      in if ni `elem` used || ni `elem` rs
+          then go is n
+          else ni
