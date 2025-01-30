@@ -42,7 +42,7 @@ main = execParser (info (argument str idm) fullDesc) >>= go
       case mst of
         Nothing  -> return ()
         Just sp -> case runElab sp of
-          (Left e, ctx) -> putStrLn "Error: " >> case e of
+          (Left e, ctx) -> putStr "Error: " >> case e of
             ElabError e -> putStrLn e
             DataError e -> putStrLn e
           (Right p, _) -> runProgram p

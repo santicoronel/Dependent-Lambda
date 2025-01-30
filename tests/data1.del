@@ -130,9 +130,8 @@ let sum : (_:Nat) -> (_: Nat) -> Nat := fix r (m : Nat) : (_:Nat) -> Nat.
     suc m' := suc (r m' n)
 }
 
-let lt_sum : (m n l : Nat) -> (m_lt_n : lt m n) -> lt m (sum n l) :=
-fix lt_sum (m n l : Nat) : (m_lt_n : lt m n) -> lt m (sum n l) .
-\(m_lt_n : lt m n). elim m {
+let rec lt_sum (m n l : Nat) (m_lt_n : lt m n) : lt m (sum n l) :=
+elim m {
     zero := zlt (sum n l) ;
     suc m' := elim n {
         zero := elim m_lt_n {} ;
@@ -142,4 +141,4 @@ fix lt_sum (m n l : Nat) : (m_lt_n : lt m n) -> lt m (sum n l) .
     }
 }
 
-let main : Nat := n2nat (sumN (nat2n 3) (nat2n 4))
+//let main : Nat := n2nat (sumN (nat2n 3) (nat2n 4))

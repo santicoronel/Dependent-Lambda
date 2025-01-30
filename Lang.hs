@@ -20,7 +20,8 @@ data SDecl = SDecl {
   sdeclName :: Name,
   sdeclArgs :: [SArg],
   sdeclType :: SType,
-  sdeclDef :: STerm
+  sdeclDef :: STerm,
+  sdeclRec :: Bool
 } deriving Show
 
 
@@ -75,6 +76,22 @@ instance (Show n, Show ty) => Show (Arg' n ty) where
 
 type Arg = Arg' Name Type
 type SArg = Arg' [Name] SType
+
+(</>) :: SArg -> SArg -> [SArg]
+Arg as ty </> Arg bs ty'
+  | ty == ty' = [Arg (as ++ bs) ty]
+  | otherwise = [Arg as ty, Arg bs ty']
+
+(<:>) :: SArg -> [SArg] -> [SArg]
+arg <:> [] = [arg]
+arg <:> (a : as) = (arg </> a) ++  as
+
+flattenArg :: SArg -> [(Name, SType)]
+flattenArg (Arg xs ty) = [(x, ty) | x <- xs]
+
+unconsArgs :: [SArg] -> (Name, SType, [SArg])
+unconsArgs (Arg (a : as) ty : ass) = (a, ty, Arg as ty : ass)
+unconsArgs _ = error "unconsArgs"
 
 data ConHead = 
   Zero
@@ -133,7 +150,6 @@ type ElimBranch = ElimBranch' ConHead Term
 type SElimBranch = ElimBranch' Name STerm
 
 
--- TODO multiargs
 data STerm =
   Lit Int
   | SSuc
@@ -141,11 +157,11 @@ data STerm =
   | SRefl
   | SEq STerm STerm
   | SV Name
-  | SLam SArg STerm
+  | SLam [SArg] STerm
   | SApp STerm STerm
   | SElim STerm [SElimBranch]
-  | SFix Name SArg SType STerm
-  | SPi SArg SType
+  | SFix Name [SArg] SType STerm
+  | SPi [SArg] SType
   | SSort SSort
   | SAnn STerm SType
   deriving (Eq, Show)

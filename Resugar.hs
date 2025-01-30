@@ -15,20 +15,35 @@ data NamingContext = NContext {
   boundNames :: [Name]
 } deriving Show
 
-trimPiArgs :: Int -> Type -> Type
-trimPiArgs n (Type t) = go n t
-  where
-    go 0 t = Type t
-    go n (Pi arg ty) | n > 0 = go (n - 1) (unType ty)
 
--- TODO agrupar lambdas
+trimSPiArgs :: Int -> SType -> SType
+trimSPiArgs n (Type t) = go n t
+  where
+    go 0 (SPi [] ty) = ty
+    go 0 t = Type t
+    go n (SPi (Arg as aty : args) ty) | n > 0 =
+      let l = length as
+      in if l > n 
+        then Type $ SPi (Arg (drop n as) aty : args) ty
+        else go (n - l) (SPi args ty)
+    go n t = error $ "trimSPiArgs: go " ++ show n ++ " " ++ show t
+
+trimPiArgs :: Int -> Type -> Type
+trimPiArgs n (Type t) | n > 0 = go 0 t
+  where
+    go i t | i == n = Type t
+    go i (Pi arg ty) = go (i + 1) (open i $ unType ty)
+
 resugarDecl :: [Name] -> Decl -> Type -> SDecl
 resugarDecl rs d ty = case resugar [] rs (declDef d) of
-  -- TODO sacar argumentos del tipo
-  SLam arg t -> 
-    let ty' = trimPiArgs (length $ argName arg) ty
-    in  SDecl (declName d) [arg] (resugarType [] rs ty') t
-  t -> SDecl (declName d) [] (resugarType [] rs ty) t
+  u@(SLam args t) ->
+    let ns = concatMap argName args
+        ty' = trimPiArgs (length ns) ty
+    in SDecl (declName d) args (resugarType ns rs ty') t False
+  t@(SFix f args ty' u) -> if f == declName d
+    then SDecl f args ty' u True
+    else SDecl (declName d) [] (resugarType [] rs ty) t False
+  t -> SDecl (declName d) [] (resugarType [] rs ty) t False
 
 resugarType :: [Name] -> [Name] -> Type -> SType
 resugarType ns rs = Type . resugar ns rs . unType
@@ -39,7 +54,9 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go :: Term -> State NamingContext STerm
     go (V (Bound i)) = do
       bn <- gets boundNames
-      return (SV (bn !! i))
+      if i >= length bn 
+        then error $ show i ++ " " ++ show bn
+        else return (SV (bn !! i))
     go (V (Free i)) = SV <$> freshen rs (ns !! i)
     go (V (Global x)) = return (SV x)
     go (Lam arg t) = doAndRestore $ do
@@ -48,10 +65,10 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       bindName n
       t' <- go t
       case t' of
-        SLam sarg st -> if argType sarg == ty
-          then return $ SLam (Arg (n : argName sarg) ty) st
-          else return (SLam (Arg [n] ty) t')
-        _ -> return (SLam (Arg [n] ty) t')
+        SLam args st -> 
+          let sarg = Arg [argName arg] ty
+          in  return $ SLam (sarg <:> args) st
+        _ -> return (SLam [Arg [n] ty] t')
     go (t :@: u) = do
       t' <- go t
       u'<- go u
@@ -76,26 +93,21 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       bindName x
       t' <- go t
       case t' of
-        SLam sarg st -> if argType sarg == argty
-          then
-            -- TODO hacer bien esto (como??)
-            let sns = argName sarg
-                -- sty = appPi (unType ty) sns
-            in return $
-            --SFix f' (Arg (x : argName sarg) argty) ty' st
-            SFix f' (Arg [x] argty) ty' t'
-          else return (SFix f' (Arg [x] argty) ty' t')
-        _ -> return (SFix f' (Arg [x] argty) ty' t')
+        SLam args st ->
+          let sarg = Arg [argName arg] argty
+              ty'' = trimSPiArgs (length $ concatMap argName args) ty'
+          in  return $ SFix f' (sarg <:> args) ty'' st
+        _ -> return (SFix f' [Arg [x] argty] ty' t')
     go (Pi arg ty) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
       n <- freshen rs (argName arg)
       bindName n
       ty' <- go (unType ty)
       case ty' of
-        SPi sarg sty -> if argType sarg == argty
-          then return (SPi (Arg (n : argName sarg) argty) sty)
-          else return (SPi (Arg [n] argty) (Type ty'))
-        _ -> return (SPi (Arg [n] argty) (Type ty'))
+        SPi args sty -> 
+          let sarg = Arg [argName arg] argty
+          in  return $ SPi (sarg <:> args) sty
+        _ -> return (SPi [Arg [n] argty] (Type ty'))
     go (Sort (Set i)) = return (SSort (Set i))
     go (Ann t ty) = SAnn <$> go t <*> (Type <$> go (unType ty))
 

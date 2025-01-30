@@ -81,7 +81,7 @@ srefl = reserved "refl" >> return SRefl
 
 spi :: P STerm
 spi = do
-  a <- arg
+  a <- many1 arg
   reservedOp "->" <|> reservedOp "→"
   ty <- stype
   return (SPi a ty)
@@ -118,7 +118,7 @@ atom =
 
 lam :: P STerm
 lam = do  reserved "\\" <|> reserved "λ"
-          a <- arg
+          a <- many1 arg
           symbol "."
           SLam a <$> sterm
 
@@ -126,7 +126,7 @@ fix :: P STerm
 fix = do
   reserved "fix"
   f <- name
-  a <- arg
+  a <- many1 arg
   reservedOp ":"
   ty <- stype
   reservedOp "."
@@ -181,17 +181,20 @@ sterm = do
 stype :: P SType
 stype = Type <$> sterm
 
+declIsRec :: P Bool
+declIsRec = (reserved "rec" >> return True) <|> return False
+ 
 decl :: P SDecl
 decl = do
   reserved "let"
+  declRec <- declIsRec
   n <- name
   args <- many arg
   reservedOp ":"
   ty <- stype
   reservedOp ":="
   t <- sterm
-  return (SDecl n args ty t)
-
+  return (SDecl n args ty t declRec) 
 
 datacons :: P SConsDecl
 datacons =

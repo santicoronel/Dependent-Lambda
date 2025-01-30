@@ -24,7 +24,7 @@ import Prettyprinter
       semi,
       vsep,
       align,
-      hang,
+      cat,
       Doc,
       Pretty(pretty), punctuate)
 
@@ -63,8 +63,8 @@ collectApp = go []
     go as f = (f, as)
 
 collectPi :: STerm -> [Doc AnsiStyle]
-collectPi (SPi arg ty) = 
-  (arg2doc arg <+> opColor (pretty "->")) : collectPi (unType ty)
+collectPi (SPi args ty) = 
+  (cat (map arg2doc args) <+> opColor (pretty "->")) : collectPi (unType ty)
 collectPi ty = [t2doc False ty]
 
 arg2doc :: SArg -> Doc AnsiStyle
@@ -110,7 +110,7 @@ t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
   parenIf at $
   sep [ opColor (pretty "\\") <>
-        arg2doc arg <>
+        cat (map arg2doc arg) <>
         opColor dot
       , nest 4 (t2doc False t)]
 t2doc at t@(SApp _ _) =
@@ -122,11 +122,11 @@ t2doc at (SElim t bs) =
   keywordColor (pretty "elim") <+>
   t2doc False t <+>
   encloseBranches (map branch2doc bs)
-t2doc at (SFix f arg ty t) =
+t2doc at (SFix f args ty t) =
   parenIf at $
   sep [sep [ keywordColor (keywordColor $ pretty "fix")
             , name2doc f
-            , arg2doc arg
+            , cat (map arg2doc args)
             , opColor colon
             , ty2doc False ty
             , opColor dot]
@@ -141,7 +141,7 @@ t2doc at (SAnn t ty) =
   t2doc False t <> opColor colon <> ty2doc False ty
 
 decl2doc :: SDecl -> Doc AnsiStyle
-decl2doc (SDecl n args ty t) =
+decl2doc (SDecl n args ty t _) =
   sep [sep [name2doc n
           <+> sep (map arg2doc args)
           , opColor colon

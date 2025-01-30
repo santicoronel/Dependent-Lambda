@@ -49,11 +49,13 @@ elabProgram = mapM go
           return (PData dt')
 
 elabDecl :: MonadElab m => SDecl -> m Decl
-elabDecl (SDecl n args ty t) = do
+elabDecl (SDecl n args ty t r) = do
   gnames <- globalNames
   when (n `elem` gnames) 
     (throwError $ ElabError $ "nombre " ++ n ++ " repetido")
-  let t' = foldr  SLam (SAnn t ty) args
+  let t' = if r
+          then SFix n args ty t
+          else SLam args (SAnn t ty)
   rt <- elab t'
   ctx <- get
   put ctx { global = n : global ctx }
@@ -104,54 +106,65 @@ elab (SV x) = do
         let Just c = lookupWith x cs conName id
         in  return (Con (DataCon c))
       | otherwise = Nothing
-elab (SLam arg t) = go arg t
+elab (SLam args t) = goArgs (concatMap flattenArg args) t
   where
-    go (Arg [] _) t = elab t
-    go (Arg (x:xs) ty) t = do
+    goArgs :: MonadElab m => [(Name, SType)] -> STerm -> m Term
+    goArgs [] t = elab t
+    goArgs (a:as) t = do
       ctx <- get
-      put ctx { local = x : local ctx}
-      t' <- go (Arg xs ty) t
+      arg <- uncurry goArg a
+      t' <- goArgs as t
       put ctx
+      return $ Lam arg t'
+    goArg :: MonadElab m => Name -> SType -> m Arg
+    goArg x ty = do
       ty' <- elabType ty
-      return (Lam (Arg x ty') t')
+      ctx <- get
+      put ctx { local = x : local ctx }
+      return (Arg x ty')
 
 elab (SApp t u) = (:@:) <$> elab t <*> elab u
 elab (SElim t bs) = do
   t' <- elab t
   bs' <- elabBranches bs
   return (Elim t' bs')
-elab (SFix f arg ty t) = do
-  case argName arg of
-    [] -> error "elab: sin argumento"
-    (a:as) -> do
-      ty' <- elabFixType a as (argType arg) ty
-      t' <- elabFix f a as (argType arg)
-      argty <- elabType (argType arg)
-      return (Fix f (Arg a argty) ty' t')
-
+-- TODO arreglar tipo de retorno
+elab (SFix f args ty t) = do
+  let (a, aty, as) = unconsArgs args
+  ty' <- elabFixType a aty as ty
+  t' <- elabFix f a aty as
+  argty <- elabType aty
+  return (Fix f (Arg a argty) ty' t')
   where
-    elabFixType a as aty ty = do
+    elabFixType a aty args ty = do
       ctx <- get
       put (ctx { local = a : local ctx })
-      ty' <- elab (SPi (Arg as aty) ty)
+      ty' <- elab (SPi args ty)
       put ctx
       return (Type ty')
-    elabFix f a as aty = do
+    elabFix f a aty args = do
       ctx <- get
       put (ctx { local = a : f : local ctx })
-      t' <- elab (SLam (Arg as aty) t)
+      t' <- elab (SLam args t)
       put ctx
       return t'
-elab (SPi arg ty) = go arg ty
+elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
   where
-    go (Arg [] _) ty = unType <$> elabType ty
-    go (Arg (x:xs) aty) ty = do
+    goArgs :: MonadElab m => [(Name, SType)] -> SType -> m Term
+    goArgs [] ty = unType <$> elabType ty
+    goArgs (a:as) ty = do
       ctx <- get
-      put ctx { local = x : local ctx}
-      ty' <- go (Arg xs aty) ty
+      arg <- uncurry goArg a
+      ty' <- goArgs as ty
       put ctx
-      aty' <- elabType aty
-      return (Pi (Arg x aty') (Type ty'))
+      return $ Pi arg (Type ty')
+    goArg :: MonadElab m => Name -> SType -> m Arg
+    goArg x ty = do
+      ty' <- elabType ty
+      ctx <- get
+      put ctx { local = x : local ctx }
+      return (Arg x ty')
+
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty
 
