@@ -14,11 +14,6 @@ import Data.Maybe ( fromMaybe )
 
 -- NICETOHAVE hacer unificacion mas piola
 
--- TODO revisar (y quizas hacer mejor)
-
--- TODO pensar en UnifError
--- tiene sentido?? 
-
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m Bool
 unifyTerms t u = do
   nft <- reduceNF t

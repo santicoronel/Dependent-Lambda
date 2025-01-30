@@ -132,7 +132,6 @@ bindName n = do
   ctx <- get
   put ctx { boundNames = n : boundNames ctx }
 
--- TODO chequear que no pise un constructor
 freshen :: [Name] -> Name -> State NamingContext Name
 freshen rs n = do
   ctx <- get

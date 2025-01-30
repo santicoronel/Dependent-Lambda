@@ -135,7 +135,6 @@ t2doc at (SFix f args ty t) =
 t2doc at t@(SPi _ _) =
   let pis = collectPi t
   in  parenIf at $ sep pis
--- TODO sort2doc
 t2doc at (SSort s) = sort2doc at s
 t2doc at (SAnn t ty) =
   parenIf at $

@@ -12,10 +12,6 @@ import Control.Monad.Except
 import Control.Monad.Extra ( ifM )
 
 
--- MAYBE parsear solo definiciones validas
--- Tendria q pensar que quiero parsear exactamente
-
--- TODO chequear sorts
 -- TODO data params
 
 data DataError = DError String

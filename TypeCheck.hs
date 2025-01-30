@@ -85,7 +85,6 @@ inferData (DataT dn) = do
   dd <- getDataDef dn
   return (dataType dd)
 
--- TODO bindear variable
 inferElim :: MonadTypeCheck m => Term -> [ElimBranch] -> m Type
 inferElim t bs = do
   tt <- infer t
@@ -120,7 +119,6 @@ inferElim' (DataT d) as bs = do
   inferElimDataT dd as bs
 inferElim' _ _ _ = error "typerror in inferElim"
 
--- TODO
 inferElimDataT :: MonadTypeCheck m => DataDef -> [Term] -> [ElimBranch] -> m Type
 inferElimDataT dd as bs =
   case findAllBranches (map DataCon $ dataCons dd) bs of

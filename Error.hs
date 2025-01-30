@@ -26,5 +26,5 @@ data TypeError =
   | Other String
   deriving Show
 
--- TODO mejor error
+-- NICETOHAVE mejor error
 newtype TerminationError = TError Name deriving Show

@@ -15,7 +15,6 @@ data Decl = Decl {
   declDef :: Term
 } deriving Show
 
--- TODO let rec
 data SDecl = SDecl {
   sdeclName :: Name,
   sdeclArgs :: [SArg],
@@ -42,7 +41,6 @@ type SConsDecl = ConsDecl' SType
 type ConsDecl = ConsDecl' Type
 
 
--- TODO type alias
 data Var =
   Bound Int
   | Free Int
@@ -106,7 +104,7 @@ conHeadName Suc = "suc"
 conHeadName Refl = "refl"
 conHeadName (DataCon c) = conName c
 
--- TODO hacer como constructor?
+-- MAYBE hacer como constructor?
 data DataType =
   Nat
   | Eq Term Term
@@ -182,7 +180,7 @@ data Term =
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
   | Elim Term [ElimBranch]
-  | Fix Name Arg Type Term -- TODO sacar type
+  | Fix Name Arg Type Term
   | Pi Arg Type
   | Sort Sort
   | Ann Term Type
@@ -209,7 +207,6 @@ bound = V . Bound
 eqTy :: Term -> Term -> Type
 t `eqTy` u = Type (Data (Eq t u))
 
--- TODO mejores nombres
 
 getArgs :: Term -> (Term, [Term])
 getArgs = go []

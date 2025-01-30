@@ -26,8 +26,7 @@ import Data.Foldable (foldrM)
 import Control.Monad.Extra ( ifM, (>=>) )
 import Control.Monad.State (state)
 
--- TODO eta reducccion
--- TODO reduccion parcial
+-- NICETOHAVE reduccion sin expandir globales (como??)
 
 data Kont =
   KFun Term
@@ -48,7 +47,6 @@ reduceNF = betaReduceNF >=> etaReduce
 reduceNFType :: MonadTypeCheck m => Type -> m Type
 reduceNFType = betaReduceNFType >=> etaReduceType 
 
--- TODO pensar si de verdad quiero reducir fix una vez
 betaReduceNF :: MonadTypeCheck m => Term -> m Term
 betaReduceNF t = seek [] t
   where

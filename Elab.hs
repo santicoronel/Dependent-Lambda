@@ -128,7 +128,6 @@ elab (SElim t bs) = do
   t' <- elab t
   bs' <- elabBranches bs
   return (Elim t' bs')
--- TODO arreglar tipo de retorno
 elab (SFix f args ty t) = do
   let (a, aty, as) = unconsArgs args
   ty' <- elabFixType a aty as ty
@@ -172,10 +171,6 @@ elabType :: MonadElab m => SType -> m Type
 elabType (Type ty) = Type <$> elab ty
 
 
--- TODO pensar si quiero chequear mas cosas aca
---
--- podria chequear q sean constructores del mismo datatype
--- agregando nombre del dt al ElabContexto de constructores
 elabBranches :: MonadElab m => [SElimBranch] -> m [ElimBranch]
 elabBranches bs = do
   when (duplicateName (map elimCon bs))
