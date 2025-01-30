@@ -1,8 +1,8 @@
 cabal-version:      2.4
-name:               DLam
+name:               DeL
 version:            0.1.0
 
-executable DLam
+executable DeL
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.

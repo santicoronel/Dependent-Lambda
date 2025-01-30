@@ -1,1 +1,1 @@
-cabal exec DLam test -- +RTS -xc
+cabal exec DeL test -- +RTS -xc
