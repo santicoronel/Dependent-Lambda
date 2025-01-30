@@ -105,7 +105,8 @@ t2doc at SNat = opColor (pretty "Nat")
 t2doc at SRefl = opColor (pretty "refl")
 t2doc at (SEq t u) =
   parenIf at $
-  t2doc True t <+> opColor (pretty "=") <+> t2doc True u
+  -- NICETOHAVE pensar parentesis
+  t2doc False t <+> opColor (pretty "=") <+> t2doc False u
 t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
   parenIf at $
