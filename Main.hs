@@ -52,8 +52,14 @@ onlyDecls [] = []
 onlyDecls (PDecl d : p) = d : onlyDecls p
 onlyDecls (PData _ : p) = onlyDecls p
 
+initElabContext :: ElabContext
+initElabContext = emptyElabContext {
+  datatypes = ["Nat"],
+  cons = [zeroCons, sucCons]
+}
+
 runElab :: SProgram -> (Either ElabError Program, ElabContext)
-runElab p = runState (runExceptT (elabProgram p)) emptyElabContext
+runElab p = runState (runExceptT (elabProgram p)) initElabContext
 
 getNames :: Context -> [Name]
 getNames ctx = 
@@ -62,9 +68,12 @@ getNames ctx =
       cns = [conName c | d <- datadefs ctx, c <- dataCons d]
   in  gns ++ dns ++ cns
 
+initContext :: Context
+initContext = emptyContext { datadefs = [natDef] }
+
 runProgram :: Program -> IO ()
 runProgram p = do
-  r <- runStateT (runExceptT (mapM_ runDef p)) emptyContext
+  r <- runStateT (runExceptT (mapM_ runDef p)) initContext
   case r of
     (Left e, ctx) -> do
       let emsg = ppTypeError (names ctx) (getNames ctx) e

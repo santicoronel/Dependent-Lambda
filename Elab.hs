@@ -83,10 +83,10 @@ elabCons (ConsDecl n sty) = do
 
 elab :: MonadElab m => STerm -> m Term
 elab (Lit n)
-  | n >= 0 = return (iterate suc zero !! n)
+  | n >= 0 = return (iterate (suc :@:) zero !! n)
   | otherwise = error "elab: negative integer"
-elab SSuc = return (Con Suc)
-elab SNat = return (Data Nat)
+elab SSuc = return suc
+elab SNat = return (unType natTy)
 elab SRefl = return refl
 elab (SEq t u) = do
   t' <- elab t
@@ -182,19 +182,7 @@ checkArgNames :: MonadElab m => SElimBranch -> m ()
 checkArgNames (ElimBranch _ as _ ) =
   when (duplicateName as) (throwError (ElabError "nombre duplicado en case"))
 
-elabBranch :: MonadElab m => SElimBranch -> m ElimBranch
-elabBranch (ElimBranch "zero" as t) = case as of
-  [] -> ElimBranch Zero [] <$> elab t
-  _ -> throwError (ElabError "el constructor 'zero' no toma argumentos")
-elabBranch (ElimBranch "suc" as t) = case as of
-  [] -> throwError (ElabError "faltan argumentos para el constructor 'suc'")
-  [n] -> do
-    ctx <- get
-    put ctx { local = n : local ctx }
-    t' <- elab t
-    put ctx
-    return (ElimBranch Suc [n] t')
-  _ -> throwError (ElabError "el constructor 'suc' toma un solo argumento") 
+elabBranch :: MonadElab m => SElimBranch -> m ElimBranch 
 elabBranch (ElimBranch "refl" as t) = case as of
   [] -> ElimBranch Refl [] <$> elab t
   _ -> throwError (ElabError "el constructor 'refl' toma un solo argumento")

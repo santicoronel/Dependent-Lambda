@@ -92,27 +92,21 @@ unconsArgs (Arg (a : as) ty : ass) = (a, ty, Arg as ty : ass)
 unconsArgs _ = error "unconsArgs"
 
 data ConHead = 
-  Zero
-  | Suc
-  | Refl
+  Refl
   | DataCon Constructor
   deriving (Eq, Show)
 
 conHeadName :: ConHead -> String
-conHeadName Zero = "zero"
-conHeadName Suc = "suc"
 conHeadName Refl = "refl"
 conHeadName (DataCon c) = conName c
 
 -- MAYBE hacer como constructor?
 data DataType =
-  Nat
-  | Eq Term Term
+  Eq Term Term
   | DataT Name
   deriving Eq
 
 instance Show DataType where
-  show Nat = "Nat"
   show (Eq t u) = "(" ++ show t ++ " = " ++ show u ++ ")"
   show (DataT dn) = dn
 
@@ -189,14 +183,31 @@ data Term =
 var :: Int -> Term
 var x = V (Free x)
 
+natDef :: DataDef
+natDef = DataDef { 
+  dataName = "Nat",
+  dataParams = [],
+  dataType = set 0,
+  dataSort = Set 0,
+  dataArity = 0,
+  dataCons = [zeroCons, sucCons]
+}
+
 natTy :: Type
-natTy = Type (Data Nat)
+natTy = Type $ Data $ DataT "Nat"
+
+zeroCons :: Constructor
+zeroCons = Constructor "zero" natTy 0
 
 zero :: Term
-zero = Con Zero
+zero = Con (DataCon zeroCons)
 
-suc :: Term -> Term
-suc n = Con Suc :@: n 
+sucCons :: Constructor
+sucCons = Constructor "suc" sucTy 1
+  where sucTy = Type $ Pi (Arg "_" natTy) natTy
+
+suc :: Term
+suc = Con $ DataCon sucCons
 
 refl :: Term
 refl = Con Refl
@@ -215,8 +226,6 @@ getArgs = go []
     go as f = (f, as)
 
 consArgTypes :: ConHead -> [Type]
-consArgTypes Zero = []
-consArgTypes Suc = [natTy]
 consArgTypes Refl = []
 consArgTypes (DataCon c) = map argType $ snd $ dataConsArgTypes c
 

@@ -145,8 +145,6 @@ betaReduceNFBranches = mapM betaReduceNFBranch
 inspectCons :: Term -> Maybe (ConHead, [Term])
 inspectCons = go []
   where
-    go [] (Con Zero) = Just (Zero, [])
-    go [n] (Con Suc) = Just (Suc, [n])
     go [] (Con Refl) = Just (Refl, [])
     go as (Con (DataCon c))
       | length as == conArity c = Just (DataCon c, as)

@@ -25,6 +25,7 @@ import Prettyprinter
       vsep,
       align,
       cat,
+      hsep,
       Doc,
       Pretty(pretty), punctuate)
 
@@ -142,8 +143,7 @@ t2doc at (SAnn t ty) =
 
 decl2doc :: SDecl -> Doc AnsiStyle
 decl2doc (SDecl n args ty t _) =
-  sep [sep [name2doc n
-          <+> sep (map arg2doc args)
+  sep [sep [hsep (name2doc n : map arg2doc args)
           , opColor colon
           , ty2doc False ty]
       , opColor (pretty ":=")

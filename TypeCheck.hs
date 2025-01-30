@@ -63,13 +63,10 @@ infer (Ann t tt) = do
   return tt
 
 inferCon :: MonadTypeCheck m => ConHead -> m Type
-inferCon Zero = return natTy
-inferCon Suc = return (Type (Pi (Arg "_" natTy) natTy))
 inferCon Refl = throwError (EIncomplete (Con Refl))
 inferCon (DataCon c) = return (conType c)
 
 inferData :: MonadTypeCheck m => DataType -> m Type
-inferData Nat = return (set 0)
 inferData (Eq t u) = do
   ty <- retryWithError
           (inferAndCheck t u)
@@ -94,16 +91,6 @@ inferElim t bs = do
     Nothing -> throwError (ENotData tt')
 
 inferElim' :: MonadTypeCheck m => DataType -> [Term] -> [ElimBranch] -> m Type
--- NICETOHAVE tratar de inferir ambas branches
-inferElim' Nat [] bs = doAndRestore (do
-  (zb, sb) <- casesNat bs
-  ty <- infer (elimRes zb)
-  let [n] = elimConArgs sb
-  i <- bindArg n natTy
-  let sr = open i (elimRes sb)
-  check sr ty
-  return ty
-  )
 inferElim' (Eq t u) [] bs = case bs of
   -- aca deberia fallar primero si son unificables (supongo?)
   [] -> throwError EIncompleteBot
@@ -227,24 +214,6 @@ checkBranch dd as (DataCon c, mb) ty = case mb of
     et `tequal` ty
 
 checkElim' :: MonadTypeCheck m => Int -> DataType -> [Term] -> [ElimBranch] -> Type ->  m ()
--- Nat
-checkElim' x Nat [] bs rty = do
-  (zb, sb) <- casesNat bs
-  checkElimZero x (elimRes zb)
-  let [n] = elimConArgs sb
-  checkElimSuc x (elimRes sb) n
-  where
-    checkElimZero :: MonadTypeCheck m => Int -> Term -> m ()
-    checkElimZero x t = do
-      bindPattern x zero
-      check t rty
-      unbindPattern x
-    checkElimSuc :: MonadTypeCheck m => Int -> Term -> Name -> m ()
-    checkElimSuc x t n = doAndRestore (do
-      i <- bindArg n natTy
-      bindPattern x (suc (var i))
-      check (open i t) (openType x rty)
-      )
 -- Eq
 checkElim' x (Eq t u) [] bs rty = case bs of
   [] -> doAndRestore $
@@ -301,29 +270,6 @@ checkBranch' x dd as (DataCon c, mb) ty = case mb of
     bindPattern x consVal
     check (openMany is (elimRes b)) ty
     )
-
-casesNat :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, ElimBranch)
-casesNat bs = do
-  (zb, bs') <- zeroBranch bs
-  (sb, bs'') <- sucBranch bs'
-  unless (null bs'') (throwError EManyCases)
-  return (zb, sb)
-
-zeroBranch :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, [ElimBranch])
-zeroBranch [] = throwError ECasesMissing
-zeroBranch (b:bs) = case elimCon b of
-  Zero -> return (b, bs)
-  _ -> do
-    (zb, bs') <- zeroBranch bs
-    return (zb, b : bs')
-
-sucBranch :: MonadTypeCheck m => [ElimBranch] -> m (ElimBranch, [ElimBranch])
-sucBranch [] = throwError ECasesMissing
-sucBranch (b:bs) = case elimCon b of
-  Suc -> return (b, bs)
-  _ -> do
-    (sb, bs') <- sucBranch bs
-    return (sb, b : bs')
 
 shouldBeType :: MonadTypeCheck m => Type -> m ()
 shouldBeType ty = void (inferSort ty)

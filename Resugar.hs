@@ -77,7 +77,6 @@ resugar ns rs t = evalState (go t) (NContext [] [])
         _ -> return (SApp t' u')  
     go (Con ch) = return (resugarConHead ch)
     go (Data dt) = case dt of
-      Nat -> return SNat
       Eq t u -> SEq <$> go t <*> go u
       DataT d -> return (SV d)
     go (Elim t bs) = SElim <$> go t <*> mapM goBranch bs
@@ -111,10 +110,11 @@ resugar ns rs t = evalState (go t) (NContext [] [])
     go (Sort (Set i)) = return (SSort (Set i))
     go (Ann t ty) = SAnn <$> go t <*> (Type <$> go (unType ty))
 
-    resugarConHead Zero = Lit 0
-    resugarConHead Suc = SSuc
     resugarConHead Refl = SRefl
-    resugarConHead (DataCon c) = SV $ conName c
+    resugarConHead (DataCon c)
+      | c == zeroCons = Lit 0
+      | c == sucCons = SSuc
+      | otherwise = SV $ conName c
     
     goBranch :: ElimBranch -> State NamingContext SElimBranch
     goBranch (ElimBranch c as t) = doAndRestore $ do
