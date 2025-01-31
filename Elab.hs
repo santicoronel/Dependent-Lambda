@@ -164,6 +164,11 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
       put ctx { local = x : local ctx }
       return (Arg x ty')
 
+elab (SFun aty rty) = do
+  aty' <- elabType aty
+  rty' <- elabType rty
+  return $ Pi (Arg "_" aty') rty' 
+
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty
 

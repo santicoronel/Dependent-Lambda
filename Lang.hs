@@ -154,6 +154,7 @@ data STerm =
   | SElim STerm [SElimBranch]
   | SFix Name [SArg] SType STerm
   | SPi [SArg] SType
+  | SFun SType SType
   | SSort SSort
   | SAnn STerm SType
   deriving (Eq, Show)

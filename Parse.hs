@@ -160,7 +160,6 @@ app = do
 expr :: P STerm
 expr = app <|> lam <|> fix <|> elim
 
-
 equalOp :: STerm -> P STerm
 equalOp t = do
   reservedOp "="
@@ -173,13 +172,24 @@ ann t = do
   ty <- stype
   return (SAnn t ty)
 
+fun :: SType -> P STerm
+fun aty = do
+  reservedOp "->" <|> reservedOp "→"
+  rty <- stype
+  return (SFun aty rty)
+
 sterm :: P STerm
 sterm = do
   t <- expr
-  ann t <|> equalOp t <|> return t
+  ann t <|> equalOp t <|> fun (Type t) <|> return t
 
 stype :: P SType
-stype = Type <$> sterm
+stype = Type <$> sterm 
+  -- do
+  -- aty <- ty_atom
+  -- reservedOp "->" <|> reservedOp "→"
+  -- rty <- stype
+  -- return (Type $ SFun aty rty)
 
 declIsRec :: P Bool
 declIsRec = (reserved "rec" >> return True) <|> return False

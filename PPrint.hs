@@ -66,6 +66,8 @@ collectApp = go []
 collectPi :: STerm -> [Doc AnsiStyle]
 collectPi (SPi args ty) = 
   (cat (map arg2doc args) <+> opColor (pretty "->")) : collectPi (unType ty)
+collectPi (SFun aty rty) = 
+  (ty2doc False aty <+> opColor (pretty "->")) : collectPi (unType rty)
 collectPi ty = [t2doc False ty]
 
 arg2doc :: SArg -> Doc AnsiStyle
@@ -136,6 +138,9 @@ t2doc at (SFix f args ty t) =
 t2doc at t@(SPi _ _) =
   let pis = collectPi t
   in  parenIf at $ sep pis
+t2doc at t@(SFun _ _) =
+  let pis = collectPi t
+  in  parenIf at $ sep pis 
 t2doc at (SSort s) = sort2doc at s
 t2doc at (SAnn t ty) =
   parenIf at $
