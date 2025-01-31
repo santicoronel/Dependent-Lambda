@@ -1,6 +1,0 @@
-let main (A : Set) (C : (_ : A) -> (_: A) -> Set)
-        (x y : A) (r : x = y)
-        (j : (x : A) -> C x x) : C x y :=
-    elim r {
-    refl := j x
-    }

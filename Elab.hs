@@ -54,7 +54,7 @@ elabDecl (SDecl n args ty t r) = do
   when (n `elem` gnames) 
     (throwError $ ElabError $ "nombre " ++ n ++ " repetido")
   let t' = if r
-          then SFix n args ty t
+          then SAnn (SFix n args t) (Type $ SPi args ty)
           else SLam args (SAnn t ty)
   rt <- elab t'
   ctx <- get
@@ -128,19 +128,12 @@ elab (SElim t bs) = do
   t' <- elab t
   bs' <- elabBranches bs
   return (Elim t' bs')
-elab (SFix f args ty t) = do
+elab (SFix f args t) = do
   let (a, aty, as) = unconsArgs args
-  ty' <- elabFixType a aty as ty
   t' <- elabFix f a aty as
   argty <- elabType aty
-  return (Fix f (Arg a argty) ty' t')
+  return (Fix f (Arg a argty) t')
   where
-    elabFixType a aty args ty = do
-      ctx <- get
-      put (ctx { local = a : local ctx })
-      ty' <- elab (SPi args ty)
-      put ctx
-      return (Type ty')
     elabFix f a aty args = do
       ctx <- get
       put (ctx { local = a : f : local ctx })
@@ -166,9 +159,9 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
 elab t@(SFun aty rty) = doAndRestore $ do
   aty' <- elabType aty
   ctx <- get
-  put ctx { local = "_" : local ctx }
+  put ctx { local = "__fun-arg__" : local ctx }
   rty' <- elabType rty
-  return $ Pi (Arg "_" aty') rty'
+  return $ Pi (Arg "__fun-arg__" aty') rty'
 
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty

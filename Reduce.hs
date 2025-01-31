@@ -90,11 +90,11 @@ betaReduceNF t = seek [] t
         t' <- betaReduceNF (open i t)
         return (Lam arg $ close i t')
         )
-      Fix f arg ty u -> doAndRestore (do
+      Fix f arg u -> doAndRestore (do
         fi <- bindRecDef f t
         xi <- newVar (argName arg)
         u' <- seek [] (open2 fi xi u)
-        return (Fix f arg ty (close2 fi xi u'))
+        return (Fix f arg (close2 fi xi u'))
         )
       Elim t bs -> Elim <$> betaReduceNF t <*> betaReduceNFBranches bs
       (a :@: b) -> (:@:) <$> betaReduceNF a <*> betaReduceNF b
@@ -112,7 +112,7 @@ betaReduceNF t = seek [] t
         Just t -> if isCons u
           then destroy (KArg u : s) t
           else destroy s (V (Free i) :@: u)
-    destroyFun s t@(Fix f arg ty a) u = if isCons u
+    destroyFun s t@(Fix f arg a) u = if isCons u
         then do
           -- MAYBE tratar a f como un lambda a partir de aca
           -- pero marcada como recursiva
@@ -179,12 +179,11 @@ etaReduce t = go t
         _ -> return (Lam arg' t')
     go (t :@: u) = (:@:) <$> go t <*> go u
     go (Elim t bs) = Elim <$> go t <*> mapM goBranch bs
-    go (Fix f arg ty t) = do
+    go (Fix f arg t) = do
       aty <- etaReduceType (argType arg)
       let arg' = arg { argType = aty }
       t' <- etaReduce t
-      ty' <- etaReduceType ty
-      return (Fix f arg' ty' t')
+      return (Fix f arg' t')
     go (Pi arg ty) = do
       aty <- etaReduceType (argType arg)
       let arg' = arg { argType = aty }

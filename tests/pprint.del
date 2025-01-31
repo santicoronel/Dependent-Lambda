@@ -1,0 +1,23 @@
+/*
+let main (n m : Nat) (AAA BBB CCC d e f g h i j k l o p q r s t u v w y z aa bb cc dd ee ff gg hh ii jj kk: Set) (x : AAA): Nat := elim n {
+    zero := elim m {
+        zero := zero;
+        suc m' := m'
+    } ;
+    suc n' := suc (suc (suc (suc n')))
+}
+
+let main (A : Set) (C : A -> A -> Set)
+        (x y : A) (r : x = y)
+        (j : (x : A) -> C x x) : C x y := elim r {
+    refl := j x
+}
+
+let ty : Set := Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat -> Nat
+
+let main (n : Nat): Nat -> Nat := elim n {
+    zero := \(m : Nat).
+        suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc m))))))))));
+    suc n := \(m : Nat). m
+}
+*/

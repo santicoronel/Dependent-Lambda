@@ -152,7 +152,7 @@ data STerm =
   | SLam [SArg] STerm
   | SApp STerm STerm
   | SElim STerm [SElimBranch]
-  | SFix Name [SArg] SType STerm
+  | SFix Name [SArg] STerm
   | SPi [SArg] SType
   | SFun SType SType
   | SSort SSort
@@ -175,7 +175,7 @@ data Term =
   | Data DataType
   -- considerar ´elim_as_in_return_...´ https://coq.inria.fr/doc/v8.13/refman/language/core/inductive.html#the-match-with-end-construction
   | Elim Term [ElimBranch]
-  | Fix Name Arg Type Term
+  | Fix Name Arg Term
   | Pi Arg Type
   | Sort Sort
   | Ann Term Type
@@ -205,7 +205,7 @@ zero = Con (DataCon zeroCons)
 
 sucCons :: Constructor
 sucCons = Constructor "suc" sucTy 1
-  where sucTy = Type $ Pi (Arg "_" natTy) natTy
+  where sucTy = Type $ Pi (Arg "__suc-arg__" natTy) natTy
 
 suc :: Term
 suc = Con $ DataCon sucCons
@@ -271,16 +271,12 @@ occursIn v (Lam arg t) =
     Global n -> argName arg /= n && occursIn v t
 occursIn v (t :@: u) = occursIn v t || occursIn v u
 occursIn v (Elim t bs) = or (occursIn v t : map (occursInBranch v) bs)
-occursIn v (Fix f arg ty t) =
+occursIn v (Fix f arg t) =
   occursInType v (argType arg) ||
   case v of
-    Bound i -> 
-      occursInType (Bound (i + 1)) ty ||
-      occursIn (Bound (i + 2)) t
-    Free x -> occursInType v ty || occursIn v t
-    Global n ->
-      argName arg /= n && occursInType v ty ||
-      f /= n && argName arg /= n && occursIn v t    
+    Bound i -> occursIn (Bound (i + 2)) t
+    Free x -> occursIn v t
+    Global n -> f /= n && argName arg /= n && occursIn v t    
 occursIn v (Pi arg ty) =
   occursInType v (argType arg) ||
   case v of

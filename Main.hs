@@ -92,9 +92,9 @@ runProgram p = do
       ty <- infer (declDef d)
       bindGlobal d ty
       ctx <- get
-      -- MAYBE agrupar contexto global / local
       put emptyContext
         { global = global ctx, datadefs = datadefs ctx }
+      -- TODO sacar esto de aca
       when (declName d == "main") $ do
         t <- reduce (declDef d) -- NICETOHAVE no reducir globales
         ctx <- get

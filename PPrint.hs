@@ -26,8 +26,10 @@ import Prettyprinter
       align,
       cat,
       hsep,
+      punctuate,
+      fillSep,
       Doc,
-      Pretty(pretty), punctuate)
+      Pretty(pretty))
 
 --Colores
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -73,20 +75,20 @@ collectPi ty = [t2doc False ty]
 arg2doc :: SArg -> Doc AnsiStyle
 arg2doc (Arg xs ty) =
   parens $
-  hsep [sep $ map name2doc xs , opColor colon, ty2doc False ty]
+  -- MAYBE sacar align?
+  fillSep [fillSep $ map name2doc xs , opColor colon, align $ ty2doc False ty]
 
 encloseBranches :: [Doc AnsiStyle] -> Doc AnsiStyle
 encloseBranches [] = lbrace <> rbrace
 encloseBranches bs =
-  sep [lbrace
-      , nest 4 (vsep (punctuate semi bs))
+  sep [ nest 4 $ sep [lbrace, vsep (punctuate semi bs)]
       , rbrace]
 
 branch2doc :: SElimBranch -> Doc AnsiStyle
 branch2doc b =
-  sep [ pretty (elimCon b) <+>
-        sep (map pretty (elimConArgs b)) <+>
-        opColor (pretty ":="), t2doc False (elimRes b)]
+  fillSep [ hsep $ pretty (elimCon b) : map pretty (elimConArgs b)
+      , opColor (pretty ":=")
+      , t2doc False (elimRes b)]
 
 sort2doc :: Bool -> SSort -> Doc AnsiStyle
 sort2doc _ (Set 0) = keywordColor (pretty "Set")
@@ -113,7 +115,7 @@ t2doc at (SEq t u) =
 t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
   parenIf at $
-  sep [ opColor (pretty "\\") <>
+  nest 4 $ fillSep [ opColor (pretty "\\") <>
         cat (map arg2doc arg) <>
         opColor dot
       , nest 4 (t2doc False t)]
@@ -126,31 +128,32 @@ t2doc at (SElim t bs) =
   keywordColor (pretty "elim") <+>
   t2doc False t <+>
   encloseBranches (map branch2doc bs)
-t2doc at (SFix f args ty t) =
+-- TODO arreglar
+t2doc at (SFix f args t) =
   parenIf at $
   sep [sep [ keywordColor (keywordColor $ pretty "fix")
             , name2doc f
             , cat (map arg2doc args)
-            , opColor colon
-            , ty2doc False ty
             , opColor dot]
       , nest 4 (t2doc False t)]
 t2doc at t@(SPi _ _) =
   let pis = collectPi t
-  in  parenIf at $ sep pis
+  in  parenIf at $ fillSep pis -- MAYBE sep?
 t2doc at t@(SFun _ _) =
   let pis = collectPi t
-  in  parenIf at $ sep pis 
+  in  parenIf at $ fillSep pis -- MAYBE sep??
 t2doc at (SSort s) = sort2doc at s
 t2doc at (SAnn t ty) =
   parenIf at $
   t2doc False t <> opColor colon <> ty2doc False ty
 
+-- MAYBE ':=' en la misma linea
+-- TODO espacio doble sin argumentos 
 decl2doc :: SDecl -> Doc AnsiStyle
 decl2doc (SDecl n args ty t _) =
-  sep [sep [sep (name2doc n : map arg2doc args)
-          , opColor colon
-          , ty2doc False ty]
+  fillSep [fillSep [name2doc n <+> align (sep $ map arg2doc args)
+                  , opColor colon
+                  , ty2doc False ty]
       , opColor (pretty ":=")
       , t2doc False t]
 

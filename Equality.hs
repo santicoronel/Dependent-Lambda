@@ -32,7 +32,7 @@ equal' (Data d1) (Data d2)
 equal' t1@(Elim t tbs) t2@(Elim u ubs) = do
   equal' t u
   bequal tbs ubs
-equal' (Fix _ _ _ t) (Fix _ _ _ u) = equal' t u
+equal' (Fix _ _ t) (Fix _ _ u) = equal' t u
 equal' (Pi _ ty) (Pi _ uy) = equal' (unType ty) (unType uy)
 equal' (Sort s) (Sort t) = s `sequal` t
 equal' (Ann t _) u = equal' t u

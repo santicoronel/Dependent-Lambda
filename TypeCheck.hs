@@ -38,17 +38,7 @@ infer (t :@: u) = do
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
-infer t@(Fix f arg ty u) = do
-  shouldBeType (argType arg)
-  -- MAYBE tratar a f como un lambda a partir de aca
-  -- pero marcada como recursiva
-  -- tendria q abrir `a` solo para f
-  (fi, xi) <- bindFix f ty t arg
-  let ty' = openType xi ty
-  shouldBeType ty'
-  check (open2 fi xi u) ty'
-  return (Type (Pi arg (closeType xi ty')))
-
+infer t@(Fix f arg u) = throwError $ EIncomplete t
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (argType arg)
@@ -160,6 +150,18 @@ check (Lam arg t) ty = doAndRestore (do
       check (open i t) (openType i pity)
     _ -> throwError $ ECheckFun (Lam arg t) ty'
   )
+check t@(Fix f arg u) ty = do
+  shouldBeType (argType arg)
+  -- MAYBE tratar a f como un lambda a partir de aca
+  -- pero marcada como recursiva
+  -- tendria q abrir `a` solo para f
+  ty' <- reduceType ty
+  case unType ty' of
+    Pi piarg rty -> do
+      argType arg `tequal` argType piarg
+      (fi, xi) <- bindFix f rty t arg
+      check (open2 fi xi u) (openType xi rty)
+    _ -> throwError $ EFun ty
 check (Elim t ts) ty = do
   checkElim t ts ty
 check (Con ch) ty = checkCon ch ty

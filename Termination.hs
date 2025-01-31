@@ -101,7 +101,7 @@ check (Lam arg t) = doAndRestore (do
 check (t :@: u) = check t >> check u
 check (Elim (V (Free x)) bs) = mapM_ (checkBranchWith x) bs
 check (Elim t bs) = mapM_ checkBranch bs
-check (Fix f arg _ t) = doAndRestore (do
+check (Fix f arg t) = doAndRestore (do
   (fi, xi) <- addFixOp f (argName arg)
   check (open2 fi xi t)
   )

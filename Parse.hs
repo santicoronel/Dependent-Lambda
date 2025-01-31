@@ -127,11 +127,9 @@ fix = do
   reserved "fix"
   f <- name
   a <- many1 arg
-  reservedOp ":"
-  ty <- stype
   reservedOp "."
   t <- sterm
-  return (SFix f a ty t)
+  return (SFix f a t)
 
 elim :: P STerm
 elim = do

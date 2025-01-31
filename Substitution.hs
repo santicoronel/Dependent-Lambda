@@ -15,8 +15,8 @@ varChanger bound local = go 0
       in  Lam (goArg d arg) (go (d + 1) t)
     go d (t :@: u) = go d t :@: go d u
     go d (Elim t bs) = Elim (go d t) (map (goBranch d) bs)
-    go d (Fix f arg ty t) =
-      Fix f (goArg d arg) (goType (d + 1) ty) (go (d + 2) t)
+    go d (Fix f arg t) =
+      Fix f (goArg d arg) (go (d + 2) t)
     go d (Pi arg ty) = Pi (goArg d arg) (goType (d + 1) ty)
     go d (Ann t ty) = Ann (go d t) (goType d ty)
     go d (Data (Eq t u)) = Data (Eq (go d t) (go d u))

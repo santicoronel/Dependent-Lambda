@@ -5,8 +5,8 @@ module Resugar (
   ) where
 
 import Lang
-import Substitution
 import Common
+import Substitution ( open )
 
 import Control.Monad.State
 
@@ -40,8 +40,10 @@ resugarDecl rs d ty = case resugar [] rs (declDef d) of
     let ns = concatMap argName args
         ty' = trimPiArgs (length ns) ty
     in SDecl (declName d) args (resugarType ns rs ty') t False
-  t@(SFix f args ty' u) -> if f == declName d
-    then SDecl f args ty' u True
+  t@(SFix f args u) -> if f == declName d
+    then  let ns = concatMap argName args
+              ty' = trimPiArgs (length ns) ty
+          in  SDecl f args (resugarType ns rs ty') u True
     else SDecl (declName d) [] (resugarType [] rs ty) t False
   t -> SDecl (declName d) [] (resugarType [] rs ty) t False
 
@@ -80,13 +82,10 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       Eq t u -> SEq <$> go t <*> go u
       DataT d -> return (SV d)
     go (Elim t bs) = SElim <$> go t <*> mapM goBranch bs
-    go (Fix f arg ty t) = doAndRestore $ do
+    go (Fix f arg t) = doAndRestore $ do
       argty <- Type <$> go (unType $ argType arg)
       ctx <- get
       x <- freshenBound rs (argName arg)
-      bindName x
-      ty' <- Type <$> go (unType ty)
-      put ctx
       f' <- freshenBound rs f
       bindName f'
       bindName x
@@ -94,9 +93,8 @@ resugar ns rs t = evalState (go t) (NContext [] [])
       case t' of
         SLam args st ->
           let sarg = Arg [argName arg] argty
-              ty'' = trimSPiArgs (length $ concatMap argName args) ty'
-          in  return $ SFix f' (sarg <:> args) ty'' st
-        _ -> return (SFix f' [Arg [x] argty] ty' t')
+          in  return $ SFix f' (sarg <:> args) st
+        _ -> return (SFix f' [Arg [x] argty] t')
     go (Pi arg ty) | not (Bound 0 `occursInType` ty) = doAndRestore $ do
       aty <- Type <$> go (unType $ argType arg)
       n <- freshenBound rs (argName arg)

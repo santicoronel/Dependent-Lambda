@@ -13,9 +13,9 @@ let pred (x : Nat) : Nat := elim x {
 let pred_0 : pred 0 = 0 := refl
 let pred_suc (x : Nat) : pred (suc x) = x := refl
 
-let null : (_:Nat) -> Nat := fix f (x : Nat) : Nat . elim x {
+let rec null (n : Nat) : Nat := elim n {
     zero := 0 ;
-    suc n := f n
+    suc n := null n
 }
 
 
@@ -28,93 +28,84 @@ let null0_0 : null 0 = 0 := refl
 
 let null0_s (n : Nat) : null (suc n) = null n := refl
 
-let null0 : (n : Nat) -> null n = 0 := fix f (n : Nat) : null n = 0.
-elim n {
+let rec null0 (n : Nat) : null n = 0 := elim n {
     zero := null0_0 ;
-    suc n := trans Nat (null (suc n)) (null n) 0 (null0_s n) (f n)
+    suc n := trans Nat (null (suc n)) (null n) 0 (null0_s n) (null0 n)
 }
 
-let nat_ind (P : (_:Nat) -> Set) 
-        (p0 : P 0) (ps : (n : Nat) -> (_:P n) -> P (suc n))
-        : (x : Nat) -> P x := fix f (x : Nat) : P x. elim x {
-            zero := p0 ;
-            suc n := ps n (f n)
-        }
-
-let double : (_ : Nat) -> Nat := fix r (x : Nat) : Nat. elim x {
+let rec double (x : Nat) : Nat := elim x {
     zero := zero ;
-    suc n := suc (suc (r n))
+    suc n := suc (suc (double n))
 }
 
 let double_suc (n : Nat) : double (suc n) = suc (suc (double n)) :=
 refl
 
 
-let sum : (_:Nat) -> (_: Nat) -> Nat := fix r (m : Nat) : (_:Nat) -> Nat.
-\(n : Nat). elim m {
+let rec sum (m n : Nat) : Nat := elim m {
     zero := n ;
-    suc m' := suc (r m' n)
+    suc m' := suc (sum m' n)
 }
 
 let cong_suc (m n : Nat) (r : m = n) : suc m = suc n :=
 elim r { refl := refl }
 
 
-let sum0 : (n : Nat) -> sum n 0 = n := fix r (n : Nat) : sum n 0 = n.
-elim n {
+let rec sum0 (n : Nat) : sum n 0 = n := elim n {
     zero := refl ;
-    suc n' := cong_suc (sum n' 0) n' (r n')
+    suc n' := cong_suc (sum n' 0) n' (sum0 n')
 }
 
-let sum_suc : (m n : Nat) -> sum m (suc n) = suc (sum m n) :=
-fix r (m n : Nat) : sum m (suc n) = suc (sum m n) . elim m {
+let rec sum_suc (m n : Nat) : sum m (suc n) = suc (sum m n) :=
+elim m {
     zero := refl ;
-    suc m' := cong_suc (sum m' (suc n)) (suc (sum m' n)) (r m' n)
+    suc m' := cong_suc (sum m' (suc n)) (suc (sum m' n)) (sum_suc m' n)
 }
 
 let sym (A : Set) (x y : A) (r : x = y) : y = x := elim r { refl := refl }
 
-let sum_comm : (m n : Nat) -> sum m n = sum n m :=
-fix r (m n : Nat) : sum m n = sum n m . elim m {
+let rec sum_comm (m n : Nat) : sum m n = sum n m :=
+elim m {
     zero := sym Nat (sum n m) n (sum0 n) ;
     suc m' := trans Nat (sum m n) (suc (sum n m')) (sum n m)
-                        (cong_suc (sum m' n) (sum n m') (r m' n))
+                        (cong_suc (sum m' n) (sum n m') (sum_comm m' n))
                         (sym Nat (sum n (suc m')) (suc (sum n m')) (sum_suc n m'))
 }
 
-let subs (m : Nat) : (_:Nat) -> Nat :=
-fix subs (n : Nat) : Nat . elim n {
+let rec subs_aux (n m : Nat) : Nat := elim n {
     zero := m ;
-    suc n' := pred (subs n')
+    suc n' := pred (subs_aux n' m)
 }
 
+let subs (m n : Nat) : Nat := subs_aux n m
 
-let cong (A B : Set) (x y : A) (f : (x : A) -> B) (r : x = y) : f x = f y :=
+
+let cong (A B : Set) (x y : A) (f : A -> B) (r : x = y) : f x = f y :=
 elim r {
     refl := refl
 }
 
 
-let subs0 : (n : Nat) -> subs 0 n = 0 :=
-fix r (n : Nat) : subs 0 n = 0 . elim n {
+let rec subs0 (n : Nat) : subs 0 n = 0 := elim n {
     zero := refl ;
-    suc n' := cong Nat Nat (subs 0 n') 0 pred (r n') 
+    suc n' := cong Nat Nat (subs 0 n') 0 pred (subs0 n') 
 }
 
 
-
-let subs_suc (m : Nat) : (n : Nat) -> subs (suc m) (suc n) = subs m n :=
-fix r (n : Nat) : subs (suc m) (suc n) = subs m n . elim n {
+let rec subs_suc_aux (n m : Nat) : subs (suc m) (suc n) = subs m n :=
+elim n {
     zero := refl ;
-    suc n' := cong Nat Nat (subs (suc m) n) (subs m n') pred (r n')
+    suc n' := cong Nat Nat (subs (suc m) n) (subs m n') pred (subs_suc_aux n' m)
 }
 
+let subs_suc (m n : Nat) : subs (suc m) (suc n) = subs m n := subs_suc_aux n m
 
-let subsn : (n : Nat) -> subs n n = 0 :=
-fix subsn (n : Nat) : subs n n = 0 . elim n {
+
+let rec subsn (n : Nat) : subs n n = 0 := elim n {
     zero := refl ;
     suc n' := trans Nat (subs n n) (subs n' n') 0 (subs_suc n' n') (subsn n')
 }
+
 
 let rec mult (m n : Nat) : Nat := elim m {
     zero := zero ;
@@ -124,8 +115,21 @@ let rec mult (m n : Nat) : Nat := elim m {
 let rec mult0 (n : Nat) : mult n 0 = 0 := elim n {
     zero := refl ;
     suc n' := mult0 n'
-}
+} 
 
+let eta_eq (A : Set) (B : A -> Set)
+        (f : (x : A) -> B x) (x : Nat) : f = \(x : A). f x := refl
+
+let rec nat_ind_aux (x : Nat) (P : Nat -> Set) 
+        (p0 : P 0) (ps : (n : Nat) -> P n -> P (suc n))
+        : P x := elim x {
+            zero := p0 ;
+            suc n := ps n (nat_ind_aux n P p0 ps)
+        }
+
+let nat_ind (P : Nat -> Set) 
+        (p0 : P 0) (ps : (n : Nat) -> P n -> P (suc n))
+        (n : Nat) : P n := nat_ind_aux n P p0 ps
 
 /*
 TODO terrible kilomboo

@@ -124,9 +124,8 @@ dataOccurs d = go
     go (Data (Eq t u)) = go t || go u
     go (Data (DataT n)) = n == dataName d
     go (Elim t bs) = go t || any goBranch bs
-    go (Fix f arg ty t) =
+    go (Fix f arg t) =
       go (unType $ argType arg) ||
-      argName arg /= dataName d && go (unType ty) ||
       argName arg /= f && argName arg /= dataName d && go t
     go (Pi arg ty) =
       go (unType $ argType arg) || argName arg /= dataName d && go (unType ty)
