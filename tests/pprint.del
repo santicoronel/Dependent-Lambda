@@ -20,4 +20,11 @@ let main (n : Nat): Nat -> Nat := elim n {
         suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc m))))))))));
     suc n := \(m : Nat). m
 }
+
+let rec sum (m n : Nat) : Nat := elim m {
+    zero := n ;
+    suc m := sum m n
+}
+
+let main : Nat -> Nat -> Nat := sum
 */

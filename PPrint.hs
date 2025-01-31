@@ -115,10 +115,10 @@ t2doc at (SEq t u) =
 t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
   parenIf at $
-  nest 4 $ fillSep [ opColor (pretty "\\") <>
-        cat (map arg2doc arg) <>
-        opColor dot
-      , nest 4 (t2doc False t)]
+  nest 4 $ sep [cat [ opColor (pretty "\\")
+                    , cat (map arg2doc arg)
+                    , opColor dot]
+      , t2doc False t]
 t2doc at t@(SApp _ _) =
   let (f, as) = collectApp t in
     parenIf at $
@@ -128,14 +128,13 @@ t2doc at (SElim t bs) =
   keywordColor (pretty "elim") <+>
   t2doc False t <+>
   encloseBranches (map branch2doc bs)
--- TODO arreglar
 t2doc at (SFix f args t) =
   parenIf at $
-  sep [sep [ keywordColor (keywordColor $ pretty "fix")
+  nest 4 $ sep [fillSep [ keywordColor (keywordColor $ pretty "fix")
             , name2doc f
             , cat (map arg2doc args)
-            , opColor dot]
-      , nest 4 (t2doc False t)]
+            <> opColor dot]
+            , t2doc False t]
 t2doc at t@(SPi _ _) =
   let pis = collectPi t
   in  parenIf at $ fillSep pis -- MAYBE sep?
@@ -148,14 +147,16 @@ t2doc at (SAnn t ty) =
   t2doc False t <> opColor colon <> ty2doc False ty
 
 -- MAYBE ':=' en la misma linea
--- TODO espacio doble sin argumentos 
 decl2doc :: SDecl -> Doc AnsiStyle
 decl2doc (SDecl n args ty t _) =
-  fillSep [fillSep [name2doc n <+> align (sep $ map arg2doc args)
-                  , opColor colon
-                  , ty2doc False ty]
-      , opColor (pretty ":=")
-      , t2doc False t]
+  let as = if null args 
+        then mempty
+        else mempty <+> align (sep $ map arg2doc args)
+  in  fillSep [ name2doc n <> as
+              , opColor colon
+              , ty2doc False ty
+              , opColor (pretty ":=")
+              , t2doc False t]
 
 -- MAYBE ponerle estilo (color, ...) a los terminos
 typeError2doc :: [Name] -> [Name] -> TypeError -> Doc AnsiStyle
