@@ -40,6 +40,7 @@ resugarDecl rs d ty = case resugar [] rs (declDef d) of
     let ns = concatMap argName args
         ty' = trimPiArgs (length ns) ty
     in SDecl (declName d) args (resugarType ns rs ty') t False
+  -- NICETOHAVE reemplazar f por declName
   t@(SFix f args u) -> if f == declName d
     then  let ns = concatMap argName args
               ty' = trimPiArgs (length ns) ty
