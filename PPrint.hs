@@ -73,7 +73,7 @@ collectPi ty = [t2doc False ty]
 arg2doc :: SArg -> Doc AnsiStyle
 arg2doc (Arg xs ty) =
   parens $
-  sep (map name2doc xs ++ [opColor colon, ty2doc False ty])
+  hsep [sep $ map name2doc xs , opColor colon, ty2doc False ty]
 
 encloseBranches :: [Doc AnsiStyle] -> Doc AnsiStyle
 encloseBranches [] = lbrace <> rbrace
@@ -148,7 +148,7 @@ t2doc at (SAnn t ty) =
 
 decl2doc :: SDecl -> Doc AnsiStyle
 decl2doc (SDecl n args ty t _) =
-  sep [sep [hsep (name2doc n : map arg2doc args)
+  sep [sep [sep (name2doc n : map arg2doc args)
           , opColor colon
           , ty2doc False ty]
       , opColor (pretty ":=")
