@@ -17,7 +17,6 @@ import MonadTypeCheck (
   bindRecDef
   )
 import Substitution
-import Context ( freshVar )
 import Common
 
 import Control.Monad ( mapM, zipWithM_, zipWithM )
@@ -63,7 +62,7 @@ betaReduceNF t = seek [] t
       seek s dx
     seek s (t :@: u) = seek (KArg u : s) t
     seek s (Elim t bs) = seek (KElim bs : s) t
-    seek s (Pi arg ty) = do
+    seek s t@(Pi arg ty) = doAndRestore $ do
       i <- newVar (argName arg)
       ty' <- reduceNFType (openType i ty)
       destroy s (Pi arg (closeType i ty'))

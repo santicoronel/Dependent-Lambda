@@ -67,7 +67,7 @@ addBinder x ty = do
       bx = LBinder x ty
   put (ctx { local = bx : lc, unif = insert uf x })
 
-bindArg :: (MonadState Context m, MonadIO m) => Name -> Type -> m Int
+bindArg :: MonadState Context m => Name -> Type -> m Int
 bindArg x ty = do
   i <- newVar x
   addBinder i ty

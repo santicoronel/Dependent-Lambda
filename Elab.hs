@@ -151,11 +151,10 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
   where
     goArgs :: MonadElab m => [(Name, SType)] -> SType -> m Term
     goArgs [] ty = unType <$> elabType ty
-    goArgs (a:as) ty = do
+    goArgs (a:as) ty = doAndRestore $ do
       ctx <- get
       arg <- uncurry goArg a
       ty' <- goArgs as ty
-      put ctx
       return $ Pi arg (Type ty')
     goArg :: MonadElab m => Name -> SType -> m Arg
     goArg x ty = do
@@ -164,10 +163,12 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
       put ctx { local = x : local ctx }
       return (Arg x ty')
 
-elab (SFun aty rty) = do
+elab t@(SFun aty rty) = doAndRestore $ do
   aty' <- elabType aty
+  ctx <- get
+  put ctx { local = "_" : local ctx }
   rty' <- elabType rty
-  return $ Pi (Arg "_" aty') rty' 
+  return $ Pi (Arg "_" aty') rty'
 
 elab (SSort s) = return (Sort s)
 elab (SAnn t ty) = Ann <$> elab t <*> elabType ty

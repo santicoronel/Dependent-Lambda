@@ -76,7 +76,7 @@ runProgram p = do
   r <- runStateT (runExceptT (mapM_ runDef p)) initContext
   case r of
     (Left e, ctx) -> do
-      let emsg = ppTypeError (names ctx) (getNames ctx) e
+      let emsg = ppTypeError (reverse $ names ctx) (getNames ctx) e
       putStrLn emsg
     (Right (), _) -> putStrLn "Todo OK"
   where

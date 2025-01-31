@@ -9,7 +9,6 @@ import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad ( zipWithM_ )
-import Context (freshVar)
 import Substitution
 import Control.Monad.Extra ( unlessM )
 

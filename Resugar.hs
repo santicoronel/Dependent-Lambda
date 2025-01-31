@@ -97,8 +97,10 @@ resugar ns rs t = evalState (go t) (NContext [] [])
               ty'' = trimSPiArgs (length $ concatMap argName args) ty'
           in  return $ SFix f' (sarg <:> args) ty'' st
         _ -> return (SFix f' [Arg [x] argty] ty' t')
-    go (Pi arg ty) | not (Bound 0 `occursInType` ty) = do
+    go (Pi arg ty) | not (Bound 0 `occursInType` ty) = doAndRestore $ do
       aty <- Type <$> go (unType $ argType arg)
+      n <- freshenBound rs (argName arg)
+      bindName n
       rty <- Type <$> go (unType ty)
       return (SFun aty rty)
     go (Pi arg ty) = doAndRestore $ do
