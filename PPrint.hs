@@ -110,7 +110,6 @@ t2doc at SNat = opColor (pretty "Nat")
 t2doc at SRefl = opColor (pretty "refl")
 t2doc at (SEq t u) =
   parenIf at $
-  -- NICETOHAVE pensar parentesis
   t2doc False t <+> opColor (pretty "=") <+> t2doc False u
 t2doc at (SV x) = name2doc x
 t2doc at (SLam arg t) =
@@ -137,16 +136,15 @@ t2doc at (SFix f args t) =
             , t2doc False t]
 t2doc at t@(SPi _ _) =
   let pis = collectPi t
-  in  parenIf at $ fillSep pis -- MAYBE sep?
+  in  parenIf at $ fillSep pis
 t2doc at t@(SFun _ _) =
   let pis = collectPi t
-  in  parenIf at $ fillSep pis -- MAYBE sep??
+  in  parenIf at $ fillSep pis
 t2doc at (SSort s) = sort2doc at s
 t2doc at (SAnn t ty) =
   parenIf at $
   t2doc False t <> opColor colon <> ty2doc False ty
 
--- MAYBE ':=' en la misma linea
 decl2doc :: SDecl -> Doc AnsiStyle
 decl2doc (SDecl n args ty t _) =
   let as = if null args 
@@ -158,7 +156,6 @@ decl2doc (SDecl n args ty t _) =
               , opColor (pretty ":=")
               , t2doc False t]
 
--- MAYBE ponerle estilo (color, ...) a los terminos
 typeError2doc :: [Name] -> [Name] -> TypeError -> Doc AnsiStyle
 typeError2doc _ _ (Other e) = pretty e
 typeError2doc ns rs e = pretty "Error:" <+> align (go e)
@@ -167,7 +164,6 @@ typeError2doc ns rs e = pretty "Error:" <+> align (go e)
       let sty = resugarType ns rs ty
       in  ty2doc False sty <+>
           pretty "no es un tipo función"
-    -- TODO ver este caso
     go (EIncomplete t) =
       let st = resugar ns rs t
       in  pretty "no se pudo inferir el tipo de" <+>
@@ -206,7 +202,6 @@ typeError2doc ns rs e = pretty "Error:" <+> align (go e)
           align (vsep [
             t2doc False st
           , t2doc False su])
-    -- TODO revisar este caso
     go EIncompleteBot =
       pretty "no se pueden inferir casos faltantes."
     go (ENeq t u) =
@@ -216,7 +211,6 @@ typeError2doc ns rs e = pretty "Error:" <+> align (go e)
           align (vsep [
             t2doc False st
           , t2doc False su])
-    -- TODO ver este caso
     go ENeqBranch =
       pretty "no se puede probar igualdad de eliminaciones" <+>
       pretty "con distinto número de casos"

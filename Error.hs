@@ -1,9 +1,7 @@
 module Error where
 
--- NICETOHAVE incluir todos los errores aca
 import Lang
 
--- MAYBE parametrizar para resugarear antes de printear
 data TypeError =
   EFun Type
   | EIncomplete Term
@@ -14,7 +12,6 @@ data TypeError =
   | EManyCases
   | ENotData Type
   | EUnifError Term Term
-  -- TODO revisar este
   | EIncompleteBot
   | ENeq Term Term
   | ENeqBranch
@@ -26,5 +23,6 @@ data TypeError =
   | Other String
   deriving Show
 
--- NICETOHAVE mejor error
 newtype TerminationError = TError Name deriving Show
+
+data ElabError = ElabError String | DataError String

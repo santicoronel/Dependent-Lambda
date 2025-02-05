@@ -9,9 +9,9 @@ let is_zero (n : Nat) : Bool := elim n {
     suc _ := false
 }
 
-data eqnat : (_ : Nat) -> (_:Nat) -> Set {
+data eqnat : Nat -> Nat -> Set {
     zeqz : eqnat 0 0 ;
-    seqs : (m n : Nat) -> (_:eqnat m n) -> eqnat (suc m) (suc n)
+    seqs : (m n : Nat) -> eqnat m n -> eqnat (suc m) (suc n)
 }
 
 let eq2 : eqnat 2 2 := seqs 1 1 (seqs 0 0 zeqz)
@@ -25,16 +25,18 @@ let eq2eqnat (m n : Nat) (r : m = n) : eqnat m n := elim r {
     refl := eqnat_refl m
 }
 
-// Esto no pasa sort check :/
-// faltan data params    
+data Bot : Set {}
+
+let neq12 (r : 1 = 2) : Bot := elim r {}
+
+
+// Esto no pasa sort check :(    
 /*
 
 data List : (_:Set) -> Set {
     nil : (A : Set) -> List A ;
     cons : (A : Set) -> (_:A) -> (_:List A) -> List A
 }
-
-let l1234 : List Nat := cons Nat 1 (cons Nat 2 (cons Nat 3 (cons Nat 4 (nil Nat))))
 
 data Vec : (_:Set) -> (_:Nat) -> Set {
     nilv : (A : Set) -> Vec A 0;
@@ -45,32 +47,15 @@ data Pair : (_ _:Set) -> Set {
     pair : (A B : Set) -> (_:A) -> (_:B) -> Pair A B
 }
 
-let pair12 : Pair Nat (1 = 1) := pair Nat (1 = 1) 1 refl
-
 data Either : (_ _:Set) -> Set {
     left : (A B : Set) -> (_:A) -> Either A B ;
     right : (A B : Set) -> (_:B) -> Either A B
 }
 
-let inl1 : Either Nat Bot := left Nat Bot 1
-
 data Exists : (A : Set) -> (P : (_:A) -> Set) -> Set {
     ex : (A : Set) -> (P : (_:A) -> Set) -> (x : A) -> (p : P x) -> Exists A P 
 }
-
-// (esto si)
-data lt : (_:Nat) -> (_:Nat) -> Set {
-    zlt : (n : Nat) -> lt 0 n ;
-    slt : (m n : Nat) -> (_:lt m n) -> lt (suc m) (suc n) 
-}
-
-let ex_0_lt : Exists Nat (\(n : Nat). lt 0 n) :=
-ex Nat (\(n : Nat). lt 0 n) 2 (zlt 2)
 */
-
-data Bot : Set {}
-
-let neq12 (r : 1 = 2) : Bot := elim r {}
 
 // No pasa positivity check
 /*

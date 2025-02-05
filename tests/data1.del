@@ -1,7 +1,7 @@
 
 data N : Set {
     z : N ;
-    s : (_:N) -> N
+    s : N -> N
 }
 
 let rec sumN (m n : N) : N := elim m {
@@ -14,7 +14,7 @@ let rec nat2n (m : Nat) : N := elim m {
     suc n := s (nat2n n)
 }
 
-let rec n2nat (m : N) : Nat := elim m {
+let rec n2nat (m : N) : N := elim m {
     z := zero ;
     s n := suc (n2nat n)
 }
@@ -24,9 +24,9 @@ elim r {
     refl := refl
 }
 
-let rec natison (m : Nat) : n2nat (nat2n m) = m := elim m {
+let rec nat_iso_n (m : Nat) : n2nat (nat2n m) = m := elim m {
     zero := refl ;
-    suc n := cong Nat Nat (n2nat (nat2n n)) n suc (natison n)
+    suc n := cong Nat Nat (n2nat (nat2n n)) n suc (nat_iso_n n)
 } 
 
 

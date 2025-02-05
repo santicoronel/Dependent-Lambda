@@ -82,7 +82,6 @@ inferElim t bs = do
 
 inferElim' :: MonadTypeCheck m => DataType -> [Term] -> [ElimBranch] -> m Type
 inferElim' (Eq t u) [] bs = case bs of
-  -- aca deberia fallar primero si son unificables (supongo?)
   [] -> throwError EIncompleteBot
   [ElimBranch Refl [] r] -> doAndRestore (do
     ifM (unifyTerms t u)
@@ -106,8 +105,6 @@ inferBranches :: MonadTypeCheck m => DataDef -> [Term] -> [(ConHead, Maybe ElimB
 inferBranches _ _ [] = throwError EIncompleteBot
 inferBranches dd as ((DataCon c, mb) : ms) = case mb of
   Nothing -> throwError EIncompleteBot
-  -- NICETOHAVE tratar de inferir todas hasta q sea exitoso
-  -- tambien puedo poner las no vacias primero
   Just b -> do
     ty <- inferBranch dd as b
     checkBranches dd as ms ty

@@ -2,17 +2,16 @@ module Unify where
 
 import Lang
 import MonadTypeCheck
-import Context -- TODO no quiero importar esto siempre (ver abajo)
+import Context
 import Error
 import Reduce
 import Common
 
-import Control.Monad.State -- medio paja importar esto TODO extender interfaz MonadTypeCheck
+import Control.Monad.State
 import Control.Monad.Except
 import Control.Monad ( zipWithM_ )
 import Data.Maybe ( fromMaybe )
 
--- NICETOHAVE hacer unificacion mas piola
 
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m Bool
 unifyTerms t u = do

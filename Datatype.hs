@@ -12,7 +12,6 @@ import Control.Monad.Except
 import Control.Monad.Extra ( ifM )
 
 
--- TODO data params
 
 data DataError = DError String
 

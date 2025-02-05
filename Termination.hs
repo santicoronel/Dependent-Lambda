@@ -15,7 +15,6 @@ import Common
 import Substitution
 import Error
 
--- NICETOHAVE permitir recursion mutua (foetus)
 
 data TChecked = TE TerminationError | TOK
 

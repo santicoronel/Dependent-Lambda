@@ -1,6 +1,5 @@
 module Parse where
 
--- MAYBE usar indentacion
 
 import Lang hiding ( var )
 
@@ -10,8 +9,6 @@ import qualified Text.Parsec.Token as Tok
 
 type P = Parsec String ()
 
--- NICETOHAVE parsear, por ej, un punto pegado a una barra
--- NICETOHAVE parsear identificadores a lo agda
 
 langDef :: LanguageDef u
 langDef = emptyDef {
@@ -182,12 +179,7 @@ sterm = do
   ann t <|> equalOp t <|> fun (Type t) <|> return t
 
 stype :: P SType
-stype = Type <$> sterm 
-  -- do
-  -- aty <- ty_atom
-  -- reservedOp "->" <|> reservedOp "→"
-  -- rty <- stype
-  -- return (Type $ SFun aty rty)
+stype = Type <$> sterm
 
 declIsRec :: P Bool
 declIsRec = (reserved "rec" >> return True) <|> return False

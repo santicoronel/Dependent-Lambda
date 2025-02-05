@@ -17,8 +17,7 @@ import Data.List.Extra ( (!?) )
 class (
   Monad m,
   MonadError TypeError m,
-  MonadState Context m,
-  MonadIO m -- MAYBE sacar
+  MonadState Context m
   ) => MonadTypeCheck m where
 
 
@@ -50,12 +49,10 @@ getGlobalDef x = do
     Nothing -> error "getGlobalDef"
 
 bindGlobal :: MonadTypeCheck m => Decl -> Type -> m ()
--- bindGlobal (Decl n ty t) = do
 bindGlobal (Decl n t) ty = do
   ctx <- get
   when (n `elem` map globalName (global ctx))
     (throwError $ EGlobalEx n)
-  -- let gb = GBinder n ty t
   let gb = GBinder n ty t
   put (ctx { global = gb : global ctx })
 

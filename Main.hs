@@ -31,7 +31,6 @@ instance MonadElab (ExceptT ElabError (State ElabContext))
 
 instance MonadTypeCheck RunTypeCheck
 
--- NICETOHAVE cargar muchos archivos
 
 main :: IO ()
 main = execParser (info (argument str idm) fullDesc) >>= go
@@ -89,14 +88,14 @@ runProgram p = do
         TE e -> throwError (Other $ ppTerminationError e)
     runTC :: Decl -> RunTypeCheck ()
     runTC d = do
+      liftIO $ putStrLn $ "Typechecking " ++ declName d ++ "..."
       ty <- infer (declDef d)
       bindGlobal d ty
       ctx <- get
       put emptyContext
         { global = global ctx, datadefs = datadefs ctx }
-      -- TODO sacar esto de aca
       when (declName d == "main") $ do
-        t <- reduce (declDef d) -- NICETOHAVE no reducir globales
+        t <- reduce (declDef d)
         ctx <- get
         let reserved = getNames ctx
             sd = resugarDecl reserved (Decl (declName d) t) ty
@@ -117,7 +116,6 @@ loadFile f = do
                     hPutStrLn stderr 
                       ("No se pudo abrir el archivo " ++ filename ++ ": " ++ err)
                     return "")
-    -- setLastFile filename
     case parseIO filename program x of
       Left e -> print e >> return Nothing
       Right a -> return (Just a)

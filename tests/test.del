@@ -10,53 +10,6 @@ let cong (A : Set) (x y : A)
     refl := refl
 }
 
-/*
-// suma
-fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat). elim x {
-    zero := y ;
-    suc n := suc (f n y)
-}
-*/
-
-/*
-// eq
-refl : (fix f (x : Nat) : (_ : Nat) -> Nat . \(y : Nat) . elim x {
-        zero := elim y {
-            zero := 0 ;
-            suc _ := 1
-        };
-        suc n := elim y {
-            zero := 1 ;
-            suc m := f n m
-        }
-    }) 3 3 = 0
-*/
-
-/*
-// ni idea que hace esto
-// mejor ejemplo de recursion doble?
-fix f (x : Nat) : (_ : Nat) -> Nat .
-    fix g (y : Nat) : Nat . elim x {
-        zero := y ;
-        suc n := elim y {
-            zero := f n n ;
-            suc m := g m
-        }
-    }
-*/
-
-/*
-// ackermann
-fix f (x : Nat) : (_ : Nat) -> Nat .
-    fix g (y : Nat) : Nat . elim x {
-        zero := suc y ;
-        suc m := elim y {
-            zero := f m 1 ;
-            suc n := f m (g n)
-        }
-    }
-*/
-
 
 let subst (A : Set) (P : A -> Set)
         (x y : A) (r : x = y)
@@ -69,3 +22,17 @@ let eq_elim (A : Set) (C : A -> A -> Set)
         (j : (x : A) -> C x x) : C x y := elim r {
     refl := j x
 }
+
+
+let Bot : Set := 0 = 1
+let absurd (A : Set) (p : Bot) : A := elim p {}
+
+let rec ack (m : Nat) : Nat -> Nat :=
+fix ack_m (n : Nat). elim m {
+    zero := suc n ;
+    suc m' := elim n {
+        zero := ack m' 1 ;
+        suc n := ack m' (ack_m n)
+    }
+}
+

@@ -6,14 +6,13 @@ module Elab where
 import Lang
 import Common
 import Datatype
+import Error
 
 import Control.Monad.State
 import Control.Monad.Except
 import Data.List ( elemIndex, group )
 
-data ElabError = ElabError String | DataError String
 
--- NICETOHAVE mejores mensajes de error
 
 data ElabContext = ElabContext {
     local :: [Name],

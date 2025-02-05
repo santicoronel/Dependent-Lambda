@@ -57,5 +57,4 @@ bequal (b1 : bs1) bs2 =
       equal' (elimRes b1) (elimRes b2)
       bequal bs1 bs2'
 bequal [] [] = return ()
--- MAYBE catchear este error
 bequal _ _ = throwError ENeqBranch

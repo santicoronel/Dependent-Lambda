@@ -1,10 +1,4 @@
 
-let foo (x y : Nat) (r : x = y) : suc y = suc x := elim r { refl := refl }
-let fo (r : 4 = 3) : 4 = 5 := elim r {}
-
-let Bot : Set := 0 = 1
-let absurd (A : Set) (p : Bot) : A := elim p {}
-
 let pred (x : Nat) : Nat := elim x {
     zero := 0 ;
     suc n := n
@@ -72,6 +66,7 @@ elim m {
                         (sym Nat (sum n (suc m')) (suc (sum n m')) (sum_suc n m'))
 }
 
+// funcion auxiliar ya que DeL solo permite recursion sobre el primer argumento
 let rec subs_aux (n m : Nat) : Nat := elim n {
     zero := m ;
     suc n' := pred (subs_aux n' m)
@@ -91,7 +86,7 @@ let rec subs0 (n : Nat) : subs 0 n = 0 := elim n {
     suc n' := cong Nat Nat (subs 0 n') 0 pred (subs0 n') 
 }
 
-
+// funcion auxiliar ya que DeL solo permite recursion sobre el primer argumento
 let rec subs_suc_aux (n m : Nat) : subs (suc m) (suc n) = subs m n :=
 elim n {
     zero := refl ;
@@ -120,6 +115,7 @@ let rec mult0 (n : Nat) : mult n 0 = 0 := elim n {
 let eta_eq (A : Set) (B : A -> Set)
         (f : (x : A) -> B x) (x : Nat) : f = \(x : A). f x := refl
 
+// funcion auxiliar ya que DeL solo permite recursion sobre el primer argumento
 let rec nat_ind_aux (x : Nat) (P : Nat -> Set) 
         (p0 : P 0) (ps : (n : Nat) -> P n -> P (suc n))
         : P x := elim x {
@@ -130,11 +126,3 @@ let rec nat_ind_aux (x : Nat) (P : Nat -> Set)
 let nat_ind (P : Nat -> Set) 
         (p0 : P 0) (ps : (n : Nat) -> P n -> P (suc n))
         (n : Nat) : P n := nat_ind_aux n P p0 ps
-
-/*
-TODO terrible kilomboo
-let mult_suc : (m n : Nat) -> mult m (suc n) = sum m (mult m n) :=
-fix mul_suc (m n : Nat) : mult m (suc n) = sum n (mult m n) . elim m {
-    zero := refl ;
-    suc m' := 
-}*/

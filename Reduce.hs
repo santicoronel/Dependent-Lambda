@@ -25,7 +25,6 @@ import Data.Foldable (foldrM)
 import Control.Monad.Extra ( ifM, (>=>) )
 import Control.Monad.State (state)
 
--- NICETOHAVE reduccion sin expandir globales (como??)
 
 data Kont =
   KFun Term
@@ -105,8 +104,6 @@ betaReduceNF t = seek [] t
       dx <- getLocalDef i
       case dx of
         Nothing -> do
-          -- puede q esto no haga falta
-          -- reducimos argumentos al final
           u' <- betaReduceNF u
           destroy s (V (Free i) :@: u')
         Just t -> if isCons u
@@ -114,14 +111,11 @@ betaReduceNF t = seek [] t
           else destroy s (V (Free i) :@: u)
     destroyFun s t@(Fix f arg a) u = if isCons u
         then do
-          -- MAYBE tratar a f como un lambda a partir de aca
-          -- pero marcada como recursiva
-          -- tendria q abrir `a` solo para f
           fi <- bindRecDef f t
           xi <- bindLocalDef (argName arg) u
           a' <- seek s (open2 fi xi a)
           t' <- betaReduceNF t
-          return (substFree fi t' a') -- esta bien esto??
+          return (substFree fi t' a')
         else destroy s (t :@: u)
     destroyFun s t u = destroy s (t :@: u)
 
@@ -134,7 +128,6 @@ betaReduceNFBranches = mapM betaReduceNFBranch
     betaReduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
     betaReduceNFBranch b = doAndRestore (do
       let atys = consArgTypes (elimCon b)
-      -- NICETOHAVE abstraer este patron
       is <- mapM newVar (elimConArgs b)
       let res = openMany is (elimRes b)
       res' <- betaReduceNF res
@@ -162,7 +155,6 @@ match ch (b:bs)
   | otherwise = match ch bs
 
 
--- MAYBE mas eficiente?
 etaReduce :: MonadTypeCheck m => Term -> m Term
 etaReduce t = go t
   where
