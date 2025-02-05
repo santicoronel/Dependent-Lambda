@@ -12,7 +12,6 @@ import Substitution
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe ( isJust )
-import Data.List.Extra ( (!?) )
 
 class (
   Monad m,
