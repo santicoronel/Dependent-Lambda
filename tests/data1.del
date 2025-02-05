@@ -14,7 +14,7 @@ let rec nat2n (m : Nat) : N := elim m {
     suc n := s (nat2n n)
 }
 
-let rec n2nat (m : N) : N := elim m {
+let rec n2nat (m : N) : Nat := elim m {
     z := zero ;
     s n := suc (n2nat n)
 }
