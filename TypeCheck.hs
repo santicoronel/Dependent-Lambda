@@ -178,19 +178,13 @@ checkCon c ty = do
 
 checkElim :: MonadTypeCheck m => Term -> [ElimBranch] -> Type -> m ()
 checkElim t bs ty = do
-  t' <- reduce t
-  case t' of
-    (V (Free x)) -> do
-      tt <- getLocalType x
-      tt' <- reduceType tt
-      case inspectData (unType tt') of
-        Just (dt, as) -> checkElim' x dt as bs ty
-        _ -> throwError (ENotData tt')
-    _ -> do
-      -- NICETOHAVE hacer esto menos croto
-      let bs' = map (\b -> b { elimRes = Ann (elimRes b) ty }) bs
-      et <- inferElim t bs'
-      et `tequal` ty
+  tt <- infer t
+  tt' <- reduceType tt
+  case inspectData (unType tt') of
+    Just (dt, as) -> do
+      t' <- reduce t
+      checkElim' t' dt as bs ty
+    _ -> throwError (ENotData tt')
 
 checkBranches :: MonadTypeCheck m =>
   DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
@@ -212,61 +206,62 @@ checkBranch dd as (DataCon c, mb) ty = case mb of
     et <- inferBranch dd as b
     et `tequal` ty
 
-checkElim' :: MonadTypeCheck m => Int -> DataType -> [Term] -> [ElimBranch] -> Type ->  m ()
+checkElim' :: MonadTypeCheck m => Term -> DataType -> [Term] -> [ElimBranch] -> Type ->  m ()
 -- Eq
-checkElim' x (Eq t u) [] bs rty = case bs of
+checkElim' v (Eq t u) [] bs rty = case bs of
   [] -> doAndRestore $
     whenM (unifyTerms t u) $ throwError ECasesMissing
   [ElimBranch Refl [] r] -> doAndRestore (do
     unlessM (unifyTerms t u) (throwError EManyCases)
-    bindPattern x (Con Refl)
+    b <- catchError (unifyTerms v (Con Refl)) (\_ -> return True)
+    unless b (throwError EManyCases)
     check r rty)
   [ElimBranch Refl _ _] -> error "checkElim': Refl args"
   _ -> throwError EManyCases
 -- DataT
-checkElim' x (DataT d) as bs rty = do
+checkElim' v (DataT d) as bs rty = do
   dd <- getDataDef d
-  checkElimDataT x dd as bs rty
+  checkElimDataT v dd as bs rty
 checkElim' _ _ _ _ _ = error "typeerror in checkElim"
 
 checkElimDataT :: MonadTypeCheck m =>
-  Int -> DataDef -> [Term] -> [ElimBranch] -> Type -> m ()
-checkElimDataT x dd as bs ty =
+  Term -> DataDef -> [Term] -> [ElimBranch] -> Type -> m ()
+checkElimDataT v dd as bs ty =
   case findAllBranches (map DataCon $ dataCons dd) bs of
     Left b -> throwError (EWrongCons (elimCon b))
-    Right ms -> checkBranches' x dd as ms ty
+    Right ms -> checkBranches' v dd as ms ty
 
 checkBranches' :: MonadTypeCheck m =>
-  Int -> DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
-checkBranches' x dd as ms ty = do
-  mapM_ (flip (checkBranch' x dd as) ty) ms
+  Term -> DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
+checkBranches' v dd as ms ty = do
+  mapM_ (flip (checkBranch' v dd as) ty) ms
 
 checkBranch' :: MonadTypeCheck m =>
-  Int -> DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
-checkBranch' x dd as (DataCon c, mb) ty = case mb of
+  Term -> DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
+checkBranch' v dd as (DataCon c, mb) ty = case mb of
   Nothing -> doAndRestore (do
     let (cty, args) = dataConsArgTypes c
     is <- mapM (newVar . argName) args
     let cty' = openMany is (unType cty)
         (_, cas) = getArgs cty'
-    -- ver si hay una mejor alternativa a foldM
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    when ru $ throwError ECasesMissing
+    unifType <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
+    let consVal = foldl (:@:) (Con (DataCon c)) (map var is)
+    unifCons <- catchError (unifyTerms v consVal) (\_ -> return True)
+    when (unifType && unifCons) $ throwError ECasesMissing
     )
   Just b -> doAndRestore (do
     is <- mapM newVar (elimConArgs b)
     let (cty, args) = dataConsArgTypes c
         cty' = openMany is (unType cty)
         (_, cas) = getArgs cty'
-    -- ver si hay una mejor alternativa a foldM
-    ru <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
-    unless ru $ throwError EManyCases
+    unifType <- foldM (\r p -> (r &&) <$> uncurry unifyTerms p) True (zip cas as)
+    let consVal = foldl (:@:) (Con (DataCon c)) (map var is)
+    unifCons <- catchError (unifyTerms v consVal) (\_ -> return True)
+    unless (unifType && unifCons) $ throwError EManyCases
     --------------------------------------------------------------------------
     let tys = map argType args
     let tys' = openManyTypes is tys
     zipWithM_ addBinder is tys'
-    let consVal = foldl (:@:) (Con (DataCon c)) (map var is)
-    bindPattern x consVal
     check (openMany is (elimRes b)) ty
     )
 

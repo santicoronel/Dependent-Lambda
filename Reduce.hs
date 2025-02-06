@@ -78,10 +78,12 @@ betaReduceNF t = seek [] t
       _ -> seek (KFun u : s) t
     destroy (KElim bs : s) t = case inspectCons t of
       Just (ch, as) -> do
-        let b = match ch bs
-        is <- mapM newVar (elimConArgs b)
-        zipWithM_ bindPattern is as
-        seek s (openMany is (elimRes b))
+        case match ch bs of
+          Nothing -> destroy s (Elim t bs)
+          Just b -> do
+            is <- mapM newVar (elimConArgs b)
+            zipWithM_ bindPattern is as
+            seek s (openMany is (elimRes b))
       Nothing -> destroy s (Elim t bs)
     destroy [] t = case t of
       Lam arg t -> doAndRestore (do
@@ -148,10 +150,10 @@ inspectCons = go []
 isCons :: Term -> Bool
 isCons = isJust . inspectCons
 
-match :: ConHead -> [ElimBranch] -> ElimBranch
-match _ [] = error "match"
+match :: ConHead -> [ElimBranch] -> Maybe ElimBranch
+match _ [] = Nothing
 match ch (b:bs)
-  | ch == elimCon b = b
+  | ch == elimCon b = Just b
   | otherwise = match ch bs
 
 

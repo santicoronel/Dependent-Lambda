@@ -28,23 +28,31 @@ trimSPiArgs n (Type t) = go n t
         else go (n - l) (SPi args ty)
     go n t = error $ "trimSPiArgs: go " ++ show n ++ " " ++ show t
 
-trimPiArgs :: Int -> Type -> Type
+trimPiArgs :: Int -> Type -> (Int, Type)
 trimPiArgs n (Type t) | n > 0 = go 0 t
   where
-    go i t | i == n = Type t
-    go i (Pi arg ty) = go (i + 1) (open i $ unType ty)
+    go i t | i == n = (n, Type t)
+    go i (Pi arg ty) = 
+      let (j, t) = go (i + 1) (open i $ unType ty)
+      in  (j + 1, t)
+    go i t | i < n = (i, Type t)
 
 resugarDecl :: [Name] -> Decl -> Type -> SDecl
 resugarDecl rs d ty = case resugar [] rs (declDef d) of
   u@(SLam args t) ->
     let ns = concatMap argName args
-        ty' = trimPiArgs (length ns) ty
-    in SDecl (declName d) args (resugarType ns rs ty') t False
-  t@(SFix f args u) -> if f == declName d
-    then  let ns = concatMap argName args
-              ty' = trimPiArgs (length ns) ty
-          in  SDecl f args (resugarType ns rs ty') u True
-    else SDecl (declName d) [] (resugarType [] rs ty) t False
+        (n, ty') = trimPiArgs (length ns) ty
+        args' = take n args
+        u' = if n < length ns then SLam (drop n args) t else t
+    in SDecl (declName d) args' (resugarType ns rs ty') u' False
+  t@(SFix f args u) ->
+    let ns = concatMap argName args
+        (n, ty') = trimPiArgs (length ns) ty
+        args' = take n args
+        t' = if n < length ns then SLam (drop n args) u else u
+    in  if f == declName d && n > 0
+            then SDecl f args' (resugarType ns rs ty') t' True
+            else SDecl (declName d) args (resugarType [] rs ty) t False
   t -> SDecl (declName d) [] (resugarType [] rs ty) t False
 
 resugarType :: [Name] -> [Name] -> Type -> SType
