@@ -66,3 +66,10 @@ data Bad1 : Set {
     bad1 : (_:(_:Bad1) -> Nat) -> Bad1
 }
 */
+
+data Fin : Nat -> Set {
+        fin_zero : (n : Nat) -> Fin (suc n) ;
+        fin_suc  : (n : Nat) -> Fin n -> Fin (suc n) 
+}
+
+let main : Fin 3 := fin_suc 2 (fin_zero 1)
