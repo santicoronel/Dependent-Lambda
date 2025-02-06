@@ -1,0 +1,20 @@
+let j_elim (A : Set) (C : A -> A -> Set)
+        (x y : A) (r : x = y)
+        (j : (x : A) -> C x x) : C x y := elim r {
+    refl := j x
+}
+
+
+let subst (A : Set) (P : A -> Set)
+    (x y : A) (r : x = y)
+    (p : P x) : P y := elim r {
+        refl := p
+}
+
+
+data Bot : Set {}
+
+let neq (A : Set)(x y : A) : Set := (x = y) -> Bot
+
+let zero_neq_suc (n : Nat) : neq Nat zero (suc n) :=
+\(r : 0 = suc n). elim r {}

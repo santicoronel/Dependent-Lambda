@@ -1,0 +1,42 @@
+data ListNat : Set {
+    nil : ListNat ;
+    cons : Nat -> ListNat -> ListNat
+}
+
+let rec concat (l1 l2 : ListNat) : ListNat := elim l1 {
+    nil := l2 ;
+    cons n l1' := cons n (concat l1' l2)
+}
+
+let rec sum (m n : Nat) : Nat := elim m {
+    zero := n ;
+    suc m' := suc (sum m' n)
+}
+
+let rec len (l : ListNat) : Nat := elim l {
+    nil := 0 ;
+    cons n l' := suc (len l')
+}
+
+data lt : Nat -> Nat -> Set {
+    zlt : (n : Nat) -> lt 0 n ;
+    slt : (m n : Nat) -> lt m n -> lt (suc m) (suc n)
+}
+
+/* nil smaller than any other list */
+let rec nil_lt (l: ListNat) : Set := elim l {
+    nil := lt 0 (len l) ;
+    cons n l' := lt 0 (len l')
+}
+
+/* l1 smaller than concat l1 l2 */
+let rec lt_concat (l1 l2: ListNat) : Set := elim l1 {
+    nil := nil_lt (concat l1 l2) ;
+    cons n l1' := lt_concat l1' l2
+}
+
+let list1 : ListNat := cons 1 (cons 2 (cons 3 nil))
+let list2 : ListNat := cons 4 (cons 5 nil)
+
+/* let main : ListNat := concat list1 list2 */
+let main : Set := lt_concat list1 list2
