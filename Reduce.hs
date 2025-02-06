@@ -19,11 +19,9 @@ import MonadTypeCheck (
 import Substitution
 import Common
 
-import Control.Monad ( mapM, zipWithM_, zipWithM )
+import Control.Monad ( zipWithM_ )
 import Data.Maybe ( isJust )
-import Data.Foldable (foldrM)
 import Control.Monad.Extra ( ifM, (>=>) )
-import Control.Monad.State (state)
 
 
 data Kont =
@@ -48,7 +46,8 @@ reduceNFType = betaReduceNFType >=> etaReduceType
 betaReduceNF :: MonadTypeCheck m => Term -> m Term
 betaReduceNF t = seek [] t
   where
-    seek s (V (Bound i)) = error $ "bound " ++ show i ++ " in betaReduceNF"
+    seek :: MonadTypeCheck m => Stack -> Term -> m Term
+    seek _ (V (Bound i)) = error $ "bound " ++ show i ++ " in betaReduceNF"
     seek s (V (Free i)) = do
       dx <- getLocalDef i
       case dx of
@@ -61,13 +60,14 @@ betaReduceNF t = seek [] t
       seek s dx
     seek s (t :@: u) = seek (KArg u : s) t
     seek s (Elim t bs) = seek (KElim bs : s) t
-    seek s t@(Pi arg ty) = doAndRestore $ do
+    seek s (Pi arg ty) = doAndRestore $ do
       i <- newVar (argName arg)
       ty' <- reduceNFType (openType i ty)
       destroy s (Pi arg (closeType i ty'))
-    seek s (Ann t ty) = seek s t
+    seek s (Ann t _) = seek s t
     seek s t = destroy s t
 
+    destroy :: MonadTypeCheck m => Stack -> Term -> m Term
     destroy (KFun f : s) t = destroyFun s f t
     destroy (KArg t : s) u = case u of
       Lam arg a -> do
@@ -129,7 +129,6 @@ betaReduceNFBranches = mapM betaReduceNFBranch
   where
     betaReduceNFBranch :: MonadTypeCheck m => ElimBranch -> m ElimBranch
     betaReduceNFBranch b = doAndRestore (do
-      let atys = consArgTypes (elimCon b)
       is <- mapM newVar (elimConArgs b)
       let res = openMany is (elimRes b)
       res' <- betaReduceNF res
@@ -158,7 +157,7 @@ match ch (b:bs)
 
 
 etaReduce :: MonadTypeCheck m => Term -> m Term
-etaReduce t = go t
+etaReduce = go
   where
     go :: MonadTypeCheck m => Term -> m Term
     go (Lam arg t) = do

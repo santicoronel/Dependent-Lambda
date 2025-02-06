@@ -2,15 +2,11 @@ module Unify where
 
 import Lang
 import MonadTypeCheck
-import Context
 import Error
 import Reduce
-import Common
 
 import Control.Monad.State
 import Control.Monad.Except
-import Control.Monad ( zipWithM_ )
-import Data.Maybe ( fromMaybe )
 
 
 unifyTerms :: MonadTypeCheck m => Term -> Term -> m Bool
@@ -19,8 +15,7 @@ unifyTerms t u = do
   nfu <- reduceNF u
   go nft nfu
   where
-    go t1@(V (Free x)) t2@(V (Free y)) = do
-      ctx <- get
+    go (V (Free x)) (V (Free y)) = do
       unifyVars x y
       return True
     go (V (Free x)) t =

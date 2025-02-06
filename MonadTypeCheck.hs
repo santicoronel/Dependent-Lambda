@@ -7,11 +7,9 @@ import Context
 import Error
 import UnionFind
 import Common
-import Substitution
 
 import Control.Monad.Except
 import Control.Monad.State
-import Data.Maybe ( isJust )
 
 class (
   Monad m,

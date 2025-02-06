@@ -10,7 +10,7 @@ import Error
 
 import Control.Monad.State
 import Control.Monad.Except
-import Data.List ( elemIndex, group )
+import Data.List ( elemIndex )
 
 
 
@@ -129,11 +129,11 @@ elab (SElim t bs) = do
   return (Elim t' bs')
 elab (SFix f args t) = do
   let (a, aty, as) = unconsArgs args
-  t' <- elabFix f a aty as
+  t' <- elabFix a aty as
   argty <- elabType aty
   return (Fix f (Arg a argty) t')
   where
-    elabFix f a aty args = do
+    elabFix a aty args = do
       ctx <- get
       put (ctx { local = a : f : local ctx })
       t' <- elab (SLam args t)
@@ -144,7 +144,6 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
     goArgs :: MonadElab m => [(Name, SType)] -> SType -> m Term
     goArgs [] ty = unType <$> elabType ty
     goArgs (a:as) ty = doAndRestore $ do
-      ctx <- get
       arg <- uncurry goArg a
       ty' <- goArgs as ty
       return $ Pi arg (Type ty')
@@ -155,7 +154,7 @@ elab (SPi args ty) = goArgs (concatMap flattenArg args) ty
       put ctx { local = x : local ctx }
       return (Arg x ty')
 
-elab t@(SFun aty rty) = doAndRestore $ do
+elab (SFun aty rty) = doAndRestore $ do
   aty' <- elabType aty
   ctx <- get
   put ctx { local = "__fun-arg__" : local ctx }

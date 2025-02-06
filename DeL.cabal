@@ -28,7 +28,7 @@ executable DeL
     ghc-options: 
         -threaded 
         -rtsopts 
-        -with-rtsopts=-N 
+        -with-rtsopts=-N
     -- other-extensions:
     build-depends:    
           base >=4.7

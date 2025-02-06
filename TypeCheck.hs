@@ -3,7 +3,6 @@ module TypeCheck ( infer, check, inferSort, shouldBeType ) where
 import Lang
 import Error
 import MonadTypeCheck
-import Context
 import Unify
 import Equality
 import Reduce
@@ -11,7 +10,6 @@ import Substitution
 import Common
 
 import Control.Monad.Except
-import Control.Monad.State
 import Control.Monad.Extra (whenM, ifM, unlessM)
 
 
@@ -38,7 +36,7 @@ infer (t :@: u) = do
 infer (Con ch) = inferCon ch
 infer (Data dt) = inferData dt
 infer (Elim t bs) = inferElim t bs
-infer t@(Fix f arg u) = throwError $ EIncomplete t
+infer t@(Fix {}) = throwError $ EIncomplete t
 infer (Pi arg ty) = doAndRestore (do
   tty <- inferSort (argType arg)
   i <- bindArg (argName arg) (argType arg)
@@ -103,15 +101,15 @@ inferElimDataT dd as bs =
 
 inferBranches :: MonadTypeCheck m => DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> m Type
 inferBranches _ _ [] = throwError EIncompleteBot
-inferBranches dd as ((DataCon c, mb) : ms) = case mb of
+inferBranches dd as ((DataCon _, mb) : ms) = case mb of
   Nothing -> throwError EIncompleteBot
   Just b -> do
-    ty <- inferBranch dd as b
+    ty <- inferBranch as b
     checkBranches dd as ms ty
     return ty
 
-inferBranch :: MonadTypeCheck m => DataDef -> [Term] -> ElimBranch -> m Type
-inferBranch dd as b = case elimCon b of
+inferBranch :: MonadTypeCheck m => [Term] -> ElimBranch -> m Type
+inferBranch as b = case elimCon b of
   DataCon c -> doAndRestore (do
     is <- mapM newVar (elimConArgs b)
     let (cty, args) = dataConsArgTypes c
@@ -188,11 +186,11 @@ checkElim t bs ty = do
 
 checkBranches :: MonadTypeCheck m =>
   DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
-checkBranches dd as ms ty = mapM_ (flip (checkBranch dd as) ty) ms
+checkBranches dd as ms ty = mapM_ (flip (checkBranch as) ty) ms
 
 checkBranch :: MonadTypeCheck m =>
-  DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
-checkBranch dd as (DataCon c, mb) ty = case mb of
+  [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
+checkBranch as (DataCon c, mb) ty = case mb of
   Nothing -> doAndRestore (do
     let (cty, args) = dataConsArgTypes c
     is <- mapM (newVar . argName) args
@@ -203,7 +201,7 @@ checkBranch dd as (DataCon c, mb) ty = case mb of
     when ru $ throwError ECasesMissing
     )
   Just b -> do
-    et <- inferBranch dd as b
+    et <- inferBranch as b
     et `tequal` ty
 
 checkElim' :: MonadTypeCheck m => Term -> DataType -> [Term] -> [ElimBranch] -> Type ->  m ()
@@ -234,11 +232,11 @@ checkElimDataT v dd as bs ty =
 checkBranches' :: MonadTypeCheck m =>
   Term -> DataDef -> [Term] -> [(ConHead, Maybe ElimBranch)] -> Type -> m ()
 checkBranches' v dd as ms ty = do
-  mapM_ (flip (checkBranch' v dd as) ty) ms
+  mapM_ (flip (checkBranch' v as) ty) ms
 
 checkBranch' :: MonadTypeCheck m =>
-  Term -> DataDef -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
-checkBranch' v dd as (DataCon c, mb) ty = case mb of
+  Term -> [Term] -> (ConHead, Maybe ElimBranch) -> Type -> m ()
+checkBranch' v as (DataCon c, mb) ty = case mb of
   Nothing -> doAndRestore (do
     let (cty, args) = dataConsArgTypes c
     is <- mapM (newVar . argName) args

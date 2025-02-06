@@ -9,25 +9,24 @@ import Reduce (reduceNF)
 import Substitution
 
 import Control.Monad.Except
-import Control.Monad.Extra ( ifM )
 
 
 
-data DataError = DError String
+newtype DataError = DError String
 
 checkData :: DataDecl -> Either DataError DataDef
 checkData (DataDecl n ty cs) = do
   (s, ar) <- checkDataType ty
   when (duplicateName (map consDeclName cs))
     (throwError $ DError $ "nombre de constructor " ++ n ++ " duplicado") 
-  cs <- mapM (checkDataCons n ar) cs
-  return (DataDef n [] ty s ar cs)
+  cs' <- mapM (checkDataCons n ar) cs
+  return (DataDef n [] ty s ar cs')
 
 checkDataType :: Type -> Either DataError (Sort, Int)
 checkDataType = go . unType
   where
     go (Sort s) = return (s, 0)
-    go (Pi arg ty) = (\(s, ar) -> (s, ar + 1)) <$> checkDataType ty
+    go (Pi _ ty) = (\(s, ar) -> (s, ar + 1)) <$> checkDataType ty
     go t = Left (DError $ show t ++ " inesperado en dataype definition")
 
 checkDataCons :: Name -> Int -> ConsDecl -> Either DataError Constructor
@@ -40,7 +39,7 @@ checkConsType :: Name -> Int -> Type -> Either DataError Int
 checkConsType d ar = go . unType
   where
     go :: Term -> Either DataError Int
-    go (Pi arg ty) = (1 + ) <$> go (unType ty)
+    go (Pi _ ty) = (1 + ) <$> go (unType ty)
     go t = checkReturn 0 t >> return 0
 
     checkReturn n (Data (DataT e))
@@ -48,7 +47,9 @@ checkConsType d ar = go . unType
         then return ()
         else Left (DError $ "datatype " ++ d ++ " aplicado parcialmente")
       | otherwise = Left (DError $ "datatype " ++ e ++ " en tipo de retorno")
-    checkReturn n (t :@: u) = checkReturn (n + 1) t
+    checkReturn n (t :@: _) = checkReturn (n + 1) t
+    checkReturn _ _ = Left (DError $
+      "el tipo de retorno debe ser " ++ d ++ " aplicado totalmente.")
 
 
 checkConsSort :: MonadTypeCheck m => DataDef -> m ()
@@ -60,7 +61,7 @@ checkConsSort dd = mapM_ checkCons (dataCons dd)
         Left ty -> throwError (EDataSort c ty (dataSort dd))
         Right _ -> return ()
     checkType :: MonadTypeCheck m => Term -> m (Either Type ())
-    checkType (Pi arg ty) = do
+    checkType (Pi arg _) = do
       s <- inferSort (argType arg)
       if subSort s (dataSort dd)
         then return (Right ())
@@ -113,6 +114,7 @@ strictPositivityCheck ty dx = reduceNF (unType ty) >>= go
       when (dx `dataOccurs` u)
         $ throwError $ EPositivity (Type u) dx dx
       goApp t
+    goApp _ = error "ill-formed datatype"
 
 dataOccurs :: DataDef -> Term -> Bool
 dataOccurs d = go 

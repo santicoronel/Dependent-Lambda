@@ -10,7 +10,7 @@ import TypeCheck
 import Context
 import Error
 import Termination
-import Reduce ( reduce, reduceType )
+import Reduce ( reduce )
 import Datatype
 import Resugar
 import PPrint
@@ -41,10 +41,10 @@ main = execParser (info (argument str idm) fullDesc) >>= go
       case mst of
         Nothing  -> return ()
         Just sp -> case runElab sp of
-          (Left e, ctx) -> putStr "Error: " >> case e of
+          Left e -> putStr "Error: " >> case e of
             ElabError e -> putStrLn e
             DataError e -> putStrLn e
-          (Right p, _) -> runProgram p
+          Right p -> runProgram p
 
 onlyDecls :: Program -> [Decl]
 onlyDecls [] = []
@@ -57,8 +57,8 @@ initElabContext = emptyElabContext {
   cons = [zeroCons, sucCons]
 }
 
-runElab :: SProgram -> (Either ElabError Program, ElabContext)
-runElab p = runState (runExceptT (elabProgram p)) initElabContext
+runElab :: SProgram -> Either ElabError Program
+runElab p = evalState (runExceptT (elabProgram p)) initElabContext
 
 getNames :: Context -> [Name]
 getNames ctx = 

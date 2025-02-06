@@ -1,4 +1,4 @@
-module Parse where
+module Parse ( P , runP , program ) where
 
 
 import Lang hiding ( var )

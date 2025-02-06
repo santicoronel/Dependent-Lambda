@@ -4,12 +4,8 @@ import Lang
 import Reduce
 import MonadTypeCheck
 import Error
-import Common
 
 import Control.Monad.Except
-import Control.Monad.State
-import Control.Monad ( zipWithM_ )
-import Substitution
 import Control.Monad.Extra ( unlessM )
 
 equal :: MonadTypeCheck m => Term -> Term -> m ()
@@ -23,13 +19,14 @@ equal' (V x) (V y) = case (x, y) of
   (Bound i, Bound j) -> unless (i == j) $ throwError (ENeq (V x) (V y))
   (Free i, Free j) -> unlessM (i `varEq` j) $ throwError (ENeq (V x) (V y))
   (Global n, Global m) -> unless (n == m) $ throwError (ENeq (V x) (V y))
-equal' (Lam a1 t) (Lam a2 u) = equal' t u
+  _ -> throwError (ENeq (V x) (V y))
+equal' (Lam _ t) (Lam _ u) = equal' t u
 equal' (Con c) (Con d)
   | c == d = return ()
 equal' (Data (Eq t u)) (Data (Eq r s)) = equal' t r >> equal' u s
 equal' (Data d1) (Data d2)
   | d1 == d2 = return ()
-equal' t1@(Elim t tbs) t2@(Elim u ubs) = do
+equal' (Elim t tbs) (Elim u ubs) = do
   equal' t u
   bequal tbs ubs
 equal' (Fix _ _ t) (Fix _ _ u) = equal' t u
