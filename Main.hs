@@ -102,6 +102,7 @@ runProgram p = do
         liftIO $ putStrLn (ppDecl sd)
     runData :: DataDef -> RunTypeCheck ()
     runData d = do
+      liftIO $ putStrLn $ "Chequeando definición de " ++ dataName d ++ "..."
       shouldBeType (dataType d)
       addDataDef d
       checkConsSort d
