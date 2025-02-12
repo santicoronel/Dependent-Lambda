@@ -1,14 +1,17 @@
 # DeL
 DeL es un lambda-cálculo con un sistema de tipos dependientes.
 Está inspirado en la teoría de tipos de Martin-Löf, y en lenguages
-modernos como Coq y Agda.
+modernos como [Coq](https://coq.inria.fr/)
+y [Agda](https://agda.readthedocs.io/).
+
 
 Cuenta con un sistema de tipos muy expresivo,
 el cual permite términos arbitrarios en las expresiones de tipo.
 Esto permite expresar, por ejemplo, igualdad de términos (el operador de
 igualdad es un constructor de tipo built-in).
 
-Los tipos estan comprendidos en un sistema de Universos (`Sort`) jerárquico:
+Los tipos estan comprendidos en un [sistema de Universos](https://agda.readthedocs.io/en/latest/language/sort-system.html#sort-system)
+(`Sort`) jerárquico:
 para un término poder considerarse un tipo, tiene que tener tipo
 `Set i`, con `i` perteneciente a los Naturales.
 El sistema no es cumulativo, y vale `Set i : Set i + 1` para todo i.
@@ -139,14 +142,18 @@ constructores habite un `Sort` mayor al declarado para el datatype.
 Se realiza para evitar paradojas del estilo de la de Rusell.
 Esto imposibilita la definición de tipos parametrizados
 (como `List`, `Pair`, etc). Una posible (e interesante) extensión del lenguaje sería permitir parámetros de tipo.
-- Chequeo de Positividad: se verifica que el tipo definido solo aparezca
+- Chequeo de [Positividad](https://coq.inria.fr/doc/v8.19/refman/language/core/inductive.html#positivity-condition): se verifica que el tipo definido solo aparezca
 en posiciones *positivas* en los tipos de los constructores.
 
 #### Elab
 
 Etapa de elaboración de términos superficiales, posterior
-a la etapa de parsing. Aquí se realiza el desugaring, y
+a la etapa de parsing. Aquí se realiza el desugaring y
 algunos chequeos sintácticos simples.
+
+#### Error
+
+Definiciones de errores.
 
 #### Lang
 
@@ -175,7 +182,7 @@ Parseo de términos, implementado con la libreria
 Pretty printing de términos y errores, implementado con la
 librería `Prettyprinter`.
 
-### Reduce
+#### Reduce
 
 Beta y eta reducción de términos. Se utiliza un modelo
 de evaluación similar a la máquina CEK vista en la materia
@@ -183,37 +190,40 @@ Compiladores. Se realiza reducción normal, i.e. se evalúa
 dentro de las abstracciones, y luego se eta-reduce.
 Siempre se realiza luego del typechecking, para garantizar terminación.
 
-Es una pieza fundamental para el chequeo de tipos, ya que las expresiones
-de tipo pueden contener términos arbitrarios sin beta reducir.
+Es una pieza fundamental para el chequeo de tipos, ya que las expresiones de tipo pueden contener términos arbitrarios sin beta reducir.
 
 #### Resugar
 
 Se resugarean los términos antes de imprimirlos.
 Debido a que el lenguaje es locally nameless, se tiene especial cuidado con las variables `Free`. Esto sucede solo
-en los mensajes de error, ya que un término cerrado no debería tener variables libres.
+en los mensajes de error, ya que un término cerrado no tiene, por definición, variables libres.
 
 #### Substitution
 
 Definiciones para tratar con variables y sustituciones.
 
-#### Termiination
+#### Termination
 
-Se implementa un chequeo de terminación para las funciones
+Se implementa un [chequeo de terminación](https://arxiv.org/abs/2407.06924) para las funciones
 recursivas. El chequeo es puramente sintáctico: se verifica
-que el operador recursivo siempre este aplicado, y que el primer argumento sea estructuralmente menor al primer
+que el operador recursivo siempre esté aplicado, y que el primer argumento sea estructuralmente menor al primer
 argumento de la definición de la función.
 
 Esto sucede únicamente cuando se realiza pattern matching
 sobre este argumento: los argumentos de los constructores
-en cada caso se consideran substructurales.
+en cada caso se consideran subestructurales.
 
 Por ejemplo:
     
-    elim n {
+    fix f (n : Nat). elim n {
         zero := ... ;
         suc m := ...
     }
-En este caso, `m` es estructuralmente menor a `n`.
+En este caso, `m` es estructuralmente menor a `n`
+y podría llamarse recursivamente a `f` con `m` como primer argumento.
+
+Una extensión posible sería permitir más de un argumento recursivo,
+posiblemente tomando un orden subestructural lexicográfico.
 
 #### Transitive
 
@@ -230,8 +240,7 @@ términos (por ejemplo, cláusulas `fix`) que no pueden
 ser inferidos (solo chequeados).
 
 En general basta con una cantidad de anotaciones razonable
-para que la inferencia
-funcione.
+para que la inferencia funcione.
 
 Este módulo cuenta con llamadas a `Reduce`, ya que es
 necesario contar con los tipos en forma normal para
@@ -242,13 +251,60 @@ la mayoría de los chequeos.
 Se implementa un algoritmo de unificación simple para
 los términos del lenguaje, inspirado por Agda.
 La unificación se realiza dentro de la cláusula `elim`:
-se unifican los parámetros del datatype siendo eliminado.
+se unifican los parámetros del datatype eliminado, y el
+término eliminado con el constructor de cada caso.
 
-Esto permite definir el eliminador `j` de la igualdad,
-asi como el principio lógico de sustitución; así como
-derivar principios tácitos del lenguaje, tal como
+La unificación permite definir el eliminador j de la 
+igualdad, así como el principio lógico de sustitución; también 
+permite derivar principios tácitos del lenguaje, tal como
 el axioma que dicta que dos constructores distintos son,
 efectivamente, distintos.
+
+    let j_elim (A : Set) (C : A -> A -> Set)
+            (x y : A) (r : x = y)
+            (j : (x : A) -> C x x) : C x y := elim r {
+        refl := j x
+    }
+
+
+    let subst (A : Set) (P : A -> Set)
+        (x y : A) (r : x = y)
+        (p : P x) : P y := elim r {
+            refl := p
+    }
+
+
+    data Bot : Set {}
+
+    let neq (A : Set)(x y : A) : Set := (x = y) -> Bot
+
+    let zero_neq_suc (n : Nat) : neq Nat zero (suc n) :=
+    \(r : 0 = suc n). elim r {}
+
+Por otro lado, la unificación permite descartar
+casos absurdos en el pattern-matching. Veamos, por ejemplo:
+
+    data lt : Nat -> Nat -> Set {
+        zero_lt : (n : Nat) -> 0 lt n ;
+        suc_lt : (m n : Nat) -> lt m n -> lt (suc m) (suc n)
+    }
+
+    let foo (n : Nat) (r : lt 0 n) : Nat := elim r {
+        zero_lt _ := 0
+    }
+
+    let bar (m : Nat) : Nat := elim (suc m) {
+        suc m' := 0
+    }
+
+En ambos casos, aunque triviales, solo deben incluirse los
+casos coherentes:
+- en `foo`, `lt 0 n` se intenta unificar sin éxito con
+`lt (suc x) (suc y)` (donde `x` e `y` son variables frescas),
+por lo que ese caso se descarta como absurdo;
+- en `bar`, `suc m` se intenta unificar sin éxito con
+`zero` y este caso se descarta como absurdo.
+
 
 En última instancia, la unificación solo se realiza sobre
 variables, por lo que muchas definiciones deben ser abstraídas para que el sistema pueda chequear su tipo.
@@ -260,6 +316,10 @@ módulo `Unify`. Utiliza la librería `Data.DisjointSet` del
 paquete `disjoint-conteiners`.
 
 ### Ejecución
+
+Para compilar el proyecto:
+
+    cabal build DeL
 
 El lenguaje se corre con el comando:
 
